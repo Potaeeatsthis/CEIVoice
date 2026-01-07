@@ -2,3 +2,4 @@ main.sql
 main.env
 
 web-app/
+node_modules/
