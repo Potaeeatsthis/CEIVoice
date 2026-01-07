@@ -161,7 +161,7 @@ def start_consumer():
         print("AI Worker Listening for new tickets (RabbitMQ)...")
         channel.start_consuming()
 
-    except Exception as e:
+    except Exception : 
         print("RabbitMQ Connection Failed. Detailed Traceback:")
         traceback.print_exc()
         time.sleep(5)
