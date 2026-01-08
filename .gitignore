@@ -1,5 +1,6 @@
 main.sql
 main.env
+package-lock.json
 
 web-app/
 node_modules/
