@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
     let finalUser = user;
 
-    [cite_start]// 4. If user does NOT exist, create them (Auto-Registration) [cite: 30]
+    // 4. If user does NOT exist, create them (Auto-Registration)
     if (!finalUser) {
       console.log(`Creating new user for Google login: ${googleEmail}`);
 
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
           password_hash: hashedPassword, // Dummy hash (user cannot use this to login manually)
           full_name: googleName || 'Google User',
           role: 'USER', // Default role
-          avatar_url: payload?.picture, // Bonus: Save their Google profile pic
+          // avatar_url: payload?.picture, // Uncomment if you have this column in DB
         })
         .select()
         .single();
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
         email: finalUser.email,
         full_name: finalUser.full_name,
         role: finalUser.role,
-        avatar_url: finalUser.avatar_url
+        // avatar_url: finalUser.avatar_url // Uncomment if you have this column
       }
     });
 
