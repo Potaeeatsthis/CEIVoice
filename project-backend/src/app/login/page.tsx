@@ -71,6 +71,9 @@ export default function LoginPage() {
     // Wrap the component in the Provider
     <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
       <div className={styles.container}>
+        <div className={styles.leftPanel}></div>
+
+      <div className={styles.content}>
         <div className={styles.card}>
           <h1 className={styles.title}>Welcome Back</h1>
           <p className={styles.subtitle}>Sign in to your CEiVoice account</p>
@@ -130,6 +133,7 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+    </div>
     </GoogleOAuthProvider>
   );
 }

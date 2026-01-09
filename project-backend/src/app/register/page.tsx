@@ -50,6 +50,9 @@ export default function RegisterPage() {
 
   return (
     <div className={styles.container}>
+      <div className={styles.leftPanel}></div>
+
+    <div className={styles.content}>
       <div className={styles.card}>
         <h1 className={styles.title}>Create Account</h1>
         <p className={styles.subtitle}>Get started with CEiVoice</p>
@@ -120,5 +123,6 @@ export default function RegisterPage() {
         </p>
       </div>
     </div>
+  </div>
   );
 }
