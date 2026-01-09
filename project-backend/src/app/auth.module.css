@@ -156,14 +156,53 @@
   margin-bottom: 1rem;
 }
 
-.leftPanel{
-  width: 50%;
-  background-color: #000;
+.passwordWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-.content {
-  width: 70%;
+/* NEW: The Eye Icon Button */
+.toggleButton {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
   display: flex;
-  justify-content: center;
   align-items: center;
+}
+
+.toggleButton:hover {
+  color: #374151;
+}
+
+/* NEW: Strength Meter Container */
+.strengthMeter {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  height: 4px;
+}
+
+/* NEW: Individual Strength Bars */
+.strengthBar {
+  flex: 1;
+  border-radius: 2px;
+  background-color: #e5e7eb; /* Default Gray */
+  transition: background-color 0.3s ease;
+}
+
+/* Strength Colors */
+.weak { background-color: #ef4444; }   /* Red */
+.medium { background-color: #eab308; } /* Yellow */
+.strong { background-color: #22c55e; } /* Green */
+
+.strengthText {
+  font-size: 0.75rem;
+  margin-top: 4px;
+  text-align: right;
+  font-weight: 500;
 }
