@@ -206,3 +206,15 @@
   text-align: right;
   font-weight: 500;
 }
+
+.leftPanel{
+  width: 30%;
+  background-color: #000;
+}
+
+.content{
+  width: 70%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
