@@ -28,26 +28,69 @@ app = FastAPI()
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 print("Loading AI Models... (This happens only once)")
-ID2LABEL = {0: "Technical", 1: "Billing", 2: "General"}
 
-tokenizer = BertTokenizer.from_pretrained("google-bert/bert-base-uncased")
-classifier = BertForSequenceClassification.from_pretrained(
-    "google-bert/bert-base-uncased",
-    num_labels=len(ID2LABEL)
-)
+ID2LABEL = {0: "Billing", 1: "Technical Support"}
+MODEL_PATH = "./ticket_model"
+
+if os.path.exists(MODEL_PATH):
+    print(f"Loading Custom Model from {MODEL_PATH}...")
+    tokenizer = BertTokenizer.from_pretrained(MODEL_PATH)
+    classifier = BertForSequenceClassification.from_pretrained(MODEL_PATH)
+else:
+    print("Warning: Custom model not found. Loading default BERT (untrained).")
+    tokenizer = BertTokenizer.from_pretrained("google-bert/bert-base-uncased")
+    classifier = BertForSequenceClassification.from_pretrained(
+        "google-bert/bert-base-uncased",
+        num_labels=len(ID2LABEL)
+    )
+
 classifier.eval() # inference mode
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+classifier.to(device)
+print(f"Classifier loaded on {device}")
 
 embedder = SentenceTransformer("all-MiniLM-L6-v2")
 print("AI Models Ready!")
 
 def predict_category(text: str) -> str:
-    """Uses BERT to classify the ticket text."""
+    """Uses BERT to classify the ticket text into Technical Support or Billing."""
     inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+    inputs = {key: val.to(device) for key, val in inputs.items()}
+
     with torch.no_grad():
         outputs = classifier(**inputs)
+
     # Get the index with the highest score
-    predicted_id = torch.argmax(outputs.logits, dim=1).item()
-    return ID2LABEL[predicted_id]
+    probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
+    confidence, predicted_id = torch.max(probs, dim=-1)
+
+    if confidence < 0.6 :
+        return "General"
+    else :
+        return ID2LABEL[predicted_id.item()]
+
+def predict_tags(text: str) -> list:
+    """
+    Scans the text for keywords to assign Scope Tags:
+    IT, HR, Finance, Database, IT Operations
+    """
+    text_lower = text.lower()
+    tags = []
+
+    keywords = {
+        "Database": ["database", "sql", "postgres", "mongo", "query", "backup", "data"],
+        "HR": ["hr", "human resources", "salary", "payroll", "leave", "hiring", "contract"],
+        "Finance": ["finance", "billing", "invoice", "payment", "cost", "budget", "tax"],
+        "IT Operations": ["operations", "devops", "server", "deployment", "aws", "cloud", "pipeline", "infrastructure"],
+        "IT": ["it", "support", "computer", "laptop", "software", "hardware", "vpn", "login", "wifi", "internet", "connection", "slow"]
+    }
+
+    for tag, keys in keywords.items():
+        if any(key in text_lower for key in keys):
+            tags.append(tag)
+
+    return tags if tags else []
 
 def get_similar_solutions(text: str) -> str:
     """Uses Supabase Vector Search to find solved tickets."""
@@ -83,19 +126,23 @@ def process_ticket(ticket_id: int, description: str):
     """Orchestrates the AI tasks."""
     print(f"Processing Ticket #{ticket_id}...")
 
-    # Classify
+    # 1. Classify Category (Technical Support / Billing)
     category = predict_category(description)
+    
+    # 2. Predict Scope Tags (IT, HR, Finance, etc.)
+    tags = predict_tags(description)
 
-    # Recommend
+    # 3. Recommend
     recommendations = get_similar_solutions(description)
 
-    # Embed (for future search)
+    # 4. Embed (for future search)
     embedding = embedder.encode(description).tolist()
 
-    # Construct Response
+    # 5. Construct Response
+    # We include the detected tags in the summary or a specific field
     ai_response = {
         "title": f"[{category}] Automated Ticket",
-        "summary": f"User reported a {category} issue: {description[:60]}...",
+        "summary": f"Category: {category} | Tags: {', '.join(tags)}\nIssue: {description}",
         "ai_solution": f"AI Suggested Next Steps:\n{recommendations}",
         "category": category,
         "embedding": embedding,
@@ -105,7 +152,7 @@ def process_ticket(ticket_id: int, description: str):
 
     # Update Database
     supabase.table("tickets").update(ai_response).eq("id", ticket_id).execute()
-    print(f"Ticket #{ticket_id} Updated!")
+    print(f"Ticket #{ticket_id} Updated! [Category: {category}, Tags: {tags}]")
 
 def rabbitmq_callback(ch, method, properties, body):
     try:
@@ -130,9 +177,6 @@ def rabbitmq_callback(ch, method, properties, body):
 
     except Exception as e:
         print(f" [!] Worker Logic Error: {e}")
-        # IMPORTANT: Decide strategy here.
-        # Option A: If it's a DB connection error, maybe requeue?
-        # Option B: If it's a code/AI error, DISCARD so we don't loop forever.
         # Safer default: Discard (requeue=False) and log error so the queue doesn't get stuck.
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
