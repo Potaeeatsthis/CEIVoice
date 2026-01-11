@@ -1,1 +1,3 @@
+/ticket_model filter=lfs diff=lfs merge=lfs -text
+ticket_model filter=lfs diff=lfs merge=lfs -text
 *.safetensors filter=lfs diff=lfs merge=lfs -text

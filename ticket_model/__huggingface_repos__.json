@@ -1,0 +1,1 @@
+{"repos": [{"repoId": "google-bert/bert-base-uncased", "repoType": "model", "commitHash": "86b5e0934494bd15c9632b12f734a8a67f723594", "filePaths": ["tokenizer.json", "vocab.txt", "tokenizer_config.json", "model.safetensors", "config.json"]}]}
