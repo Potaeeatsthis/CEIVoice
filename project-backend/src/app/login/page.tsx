@@ -91,7 +91,20 @@ export default function LoginPage() {
             </div>
 
             <div className={styles.inputGroup}>
-              <label htmlFor="password" className={styles.label}>Password</label>
+              {/* UPDATED: Added a flex container to hold Label and Forgot Password link */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <label htmlFor="password" className={styles.label} style={{ marginBottom: 0 }}>
+                  Password
+                </label>
+                <Link 
+                  href="/auth/forgot-password" 
+                  className={styles.link}
+                  style={{ fontSize: '0.85rem' }}
+                >
+                  Forgot Password?
+                </Link>
+              </div>
+              
               <input
                 type="password"
                 id="password"
