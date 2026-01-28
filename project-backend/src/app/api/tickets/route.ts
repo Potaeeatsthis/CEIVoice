@@ -60,8 +60,11 @@ export async function POST(request: Request) {
       .from('tickets')
       .insert({
         description: message,
+	title: title || null,
         status: 'DRAFT',
-        created_by: userId || null, 
+        created_by: userId || null,
+	user_email: email,
+	origin: 'web',
       })
       .select()
       .single();
