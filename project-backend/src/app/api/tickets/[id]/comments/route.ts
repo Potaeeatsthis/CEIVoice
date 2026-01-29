@@ -12,7 +12,7 @@ export async function GET(
 
   let query = supabase
     .from('comments')
-    .select('*, users(full_name, email, role)')
+    .select('*, user:users!comments_user_id_fkey (full_name, email, role)')
     .eq('ticket_id', id)
     .order('created_at', { ascending: true });
 
