@@ -61,7 +61,8 @@ export async function POST(request: Request) {
       .insert({
         description: message,
         status: 'DRAFT',
-        created_by: userId || null, 
+        created_by: userId || null,
+	user_email: email,
       })
       .select()
       .single();
