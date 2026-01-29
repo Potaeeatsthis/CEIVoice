@@ -1,6 +1,6 @@
 // src/app/api/auth/login/route.ts
 import { NextResponse } from 'next/server';
-import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -29,11 +29,11 @@ export async function POST(request: Request) {
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET!,
-      { expiresIn: '1d' } // Token valid for 1 day
+      { expiresIn: '1d' }
     );
 
-    // Return user info and token
-    return NextResponse.json({
+    // 4. Create the Response
+    const response = NextResponse.json({
       success: true,
       token,
       user: {
@@ -43,6 +43,29 @@ export async function POST(request: Request) {
         role: user.role
       }
     });
+
+    response.cookies.set('user_id', user.id, {
+      httpOnly: true, // Secure: Client JS cannot read this
+      path: '/',
+      maxAge: 60 * 60 * 24, // 1 day
+      sameSite: 'strict',
+    });
+
+    response.cookies.set('user_role', user.role || 'USER', {
+      httpOnly: true,
+      path: '/',
+      maxAge: 60 * 60 * 24,
+      sameSite: 'strict',
+    });
+
+    response.cookies.set('token', token, {
+      httpOnly: true,       // Prevents JavaScript access (Security)
+      path: '/',            // Available across the whole site
+      maxAge: 60 * 60 * 24, // Matches token expiration (1 day)
+      sameSite: 'strict',   // Prevents CSRF attacks
+    });
+
+    return response;
 
   } catch (error: any) {
     console.error('Login Error:', error);

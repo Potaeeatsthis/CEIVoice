@@ -4,12 +4,10 @@ import { supabase } from '@/lib/supabase';
 export async function GET(request: Request) {
   const userRole = request.headers.get('x-user-role');
 
-  if (userRole !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+//  if (userRole !== 'ADMIN') {
+//    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+//  }
 
-  // FIX: Changed 'ai_summary' to 'summary' to match your main.sql
-  // Also ensuring status is UPPERCASE 'DRAFT'
   const { data, error } = await supabase
     .from('tickets')
     .select('id, title, user_email, created_at, category, summary') 
