@@ -19,8 +19,8 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
 RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5672))
-RABBITMQ_USER = os.getenv("RABBITMQ_USER", "guest")
-RABBITMQ_PASS = os.getenv("RABBITMQ_PASS", "guest")
+RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER", "admin")
+RABBITMQ_PASS = os.getenv("RABBITMQ_DEFAULT_PASS", "CEIVoice@2025!")
 QUEUE_NAME = "ticket_processing_queue"
 
 app = FastAPI()
@@ -150,7 +150,7 @@ def process_ticket(ticket_id: int, description: str):
         "ai_solution": f"AI Suggested Next Steps:\n{recommendations}",
         "category": category,
         "embedding": embedding,
-        "status": "DRAFT",
+        "status": "NEW",
         "updated_at": "now()"
     }
 
