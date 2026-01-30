@@ -4,3 +4,4 @@ package-lock.json
 
 web-app/
 node_modules/
+.vscode/
