@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import PriorityIcon from './PriorityIcon'; // 👈 1. Import your new Icon
 
 // Reuse your Ticket type
 type Ticket = {
@@ -10,14 +11,14 @@ type Ticket = {
   title: string | null;
   description: string;
   status: 'DRAFT' | 'NEW' | 'IN_PROGRESS' | 'SOLVED' | 'FAILED' | 'MERGED';
-  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'; // Added URGENT to match your other files
   created_at: string;
   assigned_to_user: { full_name: string } | null;
   created_by_user: { full_name: string; email: string } | null;
 };
 
 // Priority Rank for Sorting (High to Low)
-const priorityRank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+const priorityRank: Record<string, number> = { URGENT: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
 
 export default function AdminTicketTable({ initialTickets }: { initialTickets: Ticket[] }) {
   const [tickets, setTickets] = useState(initialTickets);
@@ -26,7 +27,6 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     
-    // Toggle direction if clicking the same header
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
       direction = 'desc';
     }
@@ -35,17 +35,14 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
       let aValue = a[key];
       let bValue = b[key];
 
-      // Custom Handling for specific columns
       if (key === 'assignee') {
         aValue = a.assigned_to_user?.full_name || '';
         bValue = b.assigned_to_user?.full_name || '';
       }
       if (key === 'priority') {
-        // @ts-ignore
         return (priorityRank[a.priority] - priorityRank[b.priority]) * (direction === 'asc' ? 1 : -1);
       }
       
-      // Standard String/Number comparison
       if (aValue < bValue) return direction === 'asc' ? -1 : 1;
       if (aValue > bValue) return direction === 'asc' ? 1 : -1;
       return 0;
@@ -55,7 +52,6 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
     setSortConfig({ key, direction });
   };
 
-  // Helper to render sort arrow
   const getSortIcon = (name: string) => {
     if (sortConfig?.key !== name) return <span className="ml-1 text-zinc-600">↕</span>;
     return sortConfig.direction === 'asc' ? <span className="ml-1 text-white">↑</span> : <span className="ml-1 text-white">↓</span>;
@@ -66,7 +62,6 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-b border-zinc-800 bg-zinc-900/50 text-zinc-400">
-            {/* Clickable Headers */}
             <th className="px-6 py-3 font-medium cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('id')}>
               ID {getSortIcon('id')}
             </th>
@@ -98,7 +93,14 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
                 </span>
               </td>
               <td className="px-6 py-4"><StatusBadge status={ticket.status} /></td>
-              <td className="px-6 py-4"><PriorityBadge priority={ticket.priority} /></td>
+              
+              {/* 👇 2. REPLACE THE TEXT BADGE WITH THE ICON */}
+              <td className="px-6 py-4">
+                <div className="flex items-center"> 
+                  <PriorityIcon priority={ticket.priority} />
+                </div>
+              </td>
+
               <td className="px-6 py-4 text-zinc-400">
                 {ticket.assigned_to_user?.full_name || <span className="text-zinc-600 italic">Unassigned</span>}
               </td>
@@ -120,7 +122,7 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
   );
 }
 
-// --- Helper Components (Moved here so they can be used by the client component) ---
+// --- Helper Components ---
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
@@ -137,7 +139,3 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function PriorityBadge({ priority }: { priority: string }) {
-  const color = priority === 'HIGH' ? 'text-red-400 font-bold' : priority === 'MEDIUM' ? 'text-orange-400 font-medium' : 'text-zinc-500';
-  return <span className={`text-xs ${color}`}>{priority}</span>;
-}
