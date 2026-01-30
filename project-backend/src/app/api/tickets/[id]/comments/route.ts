@@ -1,78 +1,56 @@
 // src/app/api/tickets/[id]/comments/route.ts
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
+import { cookies } from 'next/headers';
 
-// GET: Fetch comments
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const userRole = request.headers.get('x-user-role');
-
-  let query = supabase
-    .from('comments')
-    .select('*, user:users!comments_user_id_fkey (full_name, email, role)')
-    .eq('ticket_id', id)
-    .order('created_at', { ascending: true });
-
-  // --- ROLE RESTRICTION ---
-  if (userRole === 'USER') {
-    // Users cannot see Internal notes
-    query = query.eq('type', 'PUBLIC');
-  }
-  // ------------------------
-
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  
-  return NextResponse.json({ data });
-}
-
-// POST: Add comment
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const userId = request.headers.get('x-user-id');
-  const userRole = request.headers.get('x-user-role');
-
-  let body;
   try {
-    body = await request.json();
-  } catch(e) {
-    return NextResponse.json({ error: 'Body required' }, { status: 400 });
+    const { id } = await params;
+    const cookieStore = await cookies();
+    const userId = cookieStore.get('user_id')?.value;
+    const userRole = cookieStore.get('user_role')?.value || 'USER';
+
+    // 1. Check Auth
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized: No User ID' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { content, is_internal } = body;
+
+    // 2. Validate Input
+    if (!content) {
+      return NextResponse.json({ error: 'Content is required' }, { status: 400 });
+    }
+
+    // 3. Security: Only staff can make internal notes
+    const isStaff = userRole === 'ADMIN' || userRole === 'ASSIGNEE';
+    const finalIsInternal = isStaff ? (is_internal || false) : false;
+
+    // 4. Insert
+    const { data, error } = await supabaseAdmin
+      .from('comments')
+      .insert({
+        ticket_id: id,
+        user_id: userId,
+        message: content,
+        is_internal: finalIsInternal,
+      })
+      .select('*, user:users(full_name)')
+      .single();
+
+    if (error) {
+      console.error('Supabase Error:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json(data);
+
+  } catch (error: any) {
+    console.error('API Error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  let { message, type } = body; 
-
-  if (!message) {
-    return NextResponse.json({ error: 'Message required' }, { status: 400 });
-  }
-
-  // --- ROLE RESTRICTION ---
-  // Users can ONLY post Public comments
-  if (userRole === 'USER') {
-    type = 'PUBLIC'; 
-  } else {
-    // Staff defaults to PUBLIC if not specified, but can be INTERNAL
-    type = type || 'PUBLIC';
-  }
-  // ------------------------
-
-  const { data, error } = await supabase
-    .from('comments')
-    .insert({
-      ticket_id: parseInt(id),
-      user_id: userId,
-      message,
-      type
-    })
-    .select()
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({ success: true, data });
 }

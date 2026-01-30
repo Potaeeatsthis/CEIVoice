@@ -3,10 +3,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
-// Paths requiring JWT protection for API
 const protectedApiPaths = ['/api/tickets', '/api/users'];
 
-// Standard CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*', 
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
@@ -22,9 +20,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.json({}, { headers: corsHeaders });
   }
 
-  // --- NEW: PAGE PROTECTION LOGIC ---
-  // If a regular USER tries to access any /admin path, redirect them to create a ticket
-
+  // --- PAGE PROTECTION LOGIC ---
   if (path.startsWith('/admin') && userRole !== 'ADMIN' && userRole !== 'ASSIGNEE') {
     return NextResponse.redirect(new URL('/tickets/create', request.url));
   }
@@ -44,8 +40,14 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // 👇 FIXED: Check Header OR Cookie for the token
   const authHeader = request.headers.get('authorization');
-  const token = authHeader?.split(' ')[1];
+  let token = authHeader?.split(' ')[1];
+
+  // If no header, check the cookie named 'token'
+  if (!token) {
+    token = request.cookies.get('token')?.value;
+  }
 
   if (!token) {
     return NextResponse.json(
@@ -74,6 +76,7 @@ export async function middleware(request: NextRequest) {
     return response;
 
   } catch (error) {
+    // If token is invalid (e.g. expired), we return 401
     return NextResponse.json(
       { error: 'Unauthorized: Invalid token' },
       { status: 401, headers: corsHeaders }
@@ -83,15 +86,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/api/tickets/:path*',
     '/api/users/:path*',
-    '/admin/:path*',   // Added to track admin page access
-    '/tickets/:path*', // Added to track general ticket page access
+    '/admin/:path*', 
+    '/tickets/:path*', 
   ],
 };
