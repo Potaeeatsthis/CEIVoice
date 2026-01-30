@@ -1,21 +1,8 @@
 // src/app/(dashboard)/admin/tickets/page.tsx
-import Link from 'next/link';
-import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
-
-type Ticket = {
-  id: number;
-  title: string | null;
-  description: string;
-  status: 'DRAFT' | 'NEW' | 'IN_PROGRESS' | 'SOLVED' | 'FAILED' | 'MERGED';
-  priority: 'LOW' | 'MEDIUM' | 'HIGH';
-  created_at: string;
-  assigned_to_user: { full_name: string } | null;
-  created_by_user: { full_name: string; email: string } | null;
-};
+import AdminTicketTable from '@/components/AdminTicketTable'; // Make sure to import the new component
 
 async function getTickets() {
-  // Fetch all tickets for Admin/Assignee view
   const { data, error } = await supabaseAdmin
     .from('tickets')
     .select(`
@@ -23,8 +10,7 @@ async function getTickets() {
       assigned_to_user:users!tickets_assigned_to_fkey (full_name),
       created_by_user:users!tickets_created_by_fkey (full_name, email)
     `)
-    .order('priority', { ascending: false })
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false }); // Default sort from DB
 
   if (error) {
     console.error("❌ Admin Query Error:", error.message);
@@ -35,13 +21,14 @@ async function getTickets() {
 }
 
 export default async function AdminTicketsPage() {
-  const tickets: Ticket[] = await getTickets();
+  const tickets = await getTickets();
 
+  // Calculate stats on the server side
   const stats = {
     total: tickets.length,
-    pending: tickets.filter(t => t.status === 'NEW').length,
-    inProgress: tickets.filter(t => t.status === 'IN_PROGRESS').length,
-    solved: tickets.filter(t => t.status === 'SOLVED').length,
+    pending: tickets.filter((t) => t.status === 'NEW').length,
+    inProgress: tickets.filter((t) => t.status === 'IN_PROGRESS').length,
+    solved: tickets.filter((t) => t.status === 'SOLVED').length,
   };
 
   return (
@@ -60,55 +47,13 @@ export default async function AdminTicketsPage() {
         <StatCard label="Solved" value={stats.solved} color="emerald" />
       </div>
 
-      <div className="rounded-md border border-zinc-800 bg-zinc-950/40 backdrop-blur-sm overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-zinc-800 bg-zinc-900/50 text-zinc-400">
-              <th className="px-6 py-3 font-medium">ID</th>
-              <th className="px-6 py-3 font-medium">Subject</th>
-              <th className="px-6 py-3 font-medium">Status</th>
-              <th className="px-6 py-3 font-medium">Priority</th>
-              <th className="px-6 py-3 font-medium">Assignee</th>
-              <th className="px-6 py-3 font-medium text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800">
-            {tickets.map((ticket) => (
-              <tr key={ticket.id} className="group hover:bg-zinc-900/30 transition-colors">
-                <td className="px-6 py-4 text-zinc-500 font-mono">#{ticket.id}</td>
-                <td className="px-6 py-4">
-                  <span className="font-medium text-zinc-200 group-hover:text-white block">
-                    {ticket.title || 'Untitled Ticket'}
-                  </span>
-                  <span className="text-xs text-zinc-500 truncate max-w-[200px] block">
-                    {ticket.description}
-                  </span>
-                </td>
-                <td className="px-6 py-4"><StatusBadge status={ticket.status} /></td>
-                <td className="px-6 py-4"><PriorityBadge priority={ticket.priority} /></td>
-                <td className="px-6 py-4 text-zinc-400">
-                  {ticket.assigned_to_user?.full_name || <span className="text-zinc-600 italic">Unassigned</span>}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <Link href={`/tickets/${ticket.id}`} className="text-zinc-400 hover:text-white hover:underline">
-                    Manage
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {tickets.length === 0 && (
-          <div className="p-12 text-center text-zinc-500 border-t border-zinc-800">
-            Queue is currently empty.
-          </div>
-        )}
-      </div>
+      {/* Render the Client Component which handles the sorting */}
+      <AdminTicketTable initialTickets={tickets} />
     </div>
   );
 }
 
-// Helper components remain the same as your original file
+// StatCard is static so it can stay here
 function StatCard({ label, value, color = "zinc" }: any) {
   const colors: any = {
     zinc: "text-white border-zinc-800",
@@ -122,24 +67,4 @@ function StatCard({ label, value, color = "zinc" }: any) {
       <div className="text-xs text-zinc-500 uppercase tracking-wider font-medium mt-1">{label}</div>
     </div>
   );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    NEW: "bg-blue-950/30 text-blue-400 border-blue-900",
-    IN_PROGRESS: "bg-amber-950/30 text-amber-400 border-amber-900",
-    SOLVED: "bg-emerald-950/30 text-emerald-400 border-emerald-900",
-    MERGED: "bg-purple-950/30 text-purple-400 border-purple-900",
-    DRAFT: "bg-zinc-900 text-zinc-500 border-zinc-800"
-  };
-  return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium border ${styles[status] || styles.DRAFT}`}>
-      {status.replace('_', ' ')}
-    </span>
-  );
-}
-
-function PriorityBadge({ priority }: { priority: string }) {
-  const color = priority === 'HIGH' ? 'text-red-400 font-bold' : priority === 'MEDIUM' ? 'text-orange-400 font-medium' : 'text-zinc-500';
-  return <span className={`text-xs ${color}`}>{priority}</span>;
 }
