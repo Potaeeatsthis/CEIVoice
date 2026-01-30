@@ -1,19 +1,20 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
+import { cookies } from 'next/headers';
 
 export async function GET(request: Request) {
-  const userRole = request.headers.get('x-user-role');
+  const cookieStore = await cookies();
+  const userRole = cookieStore.get('user_role')?.value;
 
+  // Security Check
   if (userRole !== 'ADMIN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // FIX: Changed 'ai_summary' to 'summary' to match your main.sql
-  // Also ensuring status is UPPERCASE 'DRAFT'
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('tickets')
-    .select('id, title, user_email, created_at, category, summary') 
-    .eq('status', 'DRAFT') // Ensure this is uppercase 'DRAFT'
+    .select('*, created_by_user:users!tickets_created_by_fkey(email)')
+    .eq('status', 'DRAFT')
     .order('created_at', { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

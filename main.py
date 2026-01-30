@@ -18,7 +18,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
-RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5672)) # default port
+RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5672))
 RABBITMQ_USER = os.getenv("RABBITMQ_USER", "guest")
 RABBITMQ_PASS = os.getenv("RABBITMQ_PASS", "guest")
 QUEUE_NAME = "ticket_processing_queue"
@@ -30,7 +30,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 print("Loading AI Models... (This happens only once)")
 
 ID2LABEL = {0: "Billing", 1: "Technical Support"}
-MODEL_PATH = "./ticket_model"
+MODEL_PATH = "./trained_ticket_model"
 
 if os.path.exists(MODEL_PATH):
     print(f"Loading Custom Model from {MODEL_PATH}...")
@@ -46,6 +46,7 @@ else:
 
 classifier.eval() # inference mode
 
+# Optional: Move to GPU if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 classifier.to(device)
 print(f"Classifier loaded on {device}")
@@ -55,16 +56,17 @@ print("AI Models Ready!")
 
 def predict_category(text: str) -> str:
     """Uses BERT to classify the ticket text into Technical Support or Billing."""
+    # Ensure inputs are moved to the same device as the model
     inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
     inputs = {key: val.to(device) for key, val in inputs.items()}
-
+    
     with torch.no_grad():
         outputs = classifier(**inputs)
-
+        
     # Get the index with the highest score
     probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
     confidence, predicted_id = torch.max(probs, dim=-1)
-
+    
     if confidence < 0.6 :
         return "General"
     else :
@@ -77,19 +79,21 @@ def predict_tags(text: str) -> list:
     """
     text_lower = text.lower()
     tags = []
-
+    
+    # Keyword mapping for your specific tags
     keywords = {
         "Database": ["database", "sql", "postgres", "mongo", "query", "backup", "data"],
         "HR": ["hr", "human resources", "salary", "payroll", "leave", "hiring", "contract"],
         "Finance": ["finance", "billing", "invoice", "payment", "cost", "budget", "tax"],
         "IT Operations": ["operations", "devops", "server", "deployment", "aws", "cloud", "pipeline", "infrastructure"],
-        "IT": ["it", "support", "computer", "laptop", "software", "hardware", "vpn", "login", "wifi", "internet", "connection", "slow"]
+        "IT": ["it", "support", "computer", "laptop", "software", "hardware", "vpn", "login", "wifi"]
+
     }
 
     for tag, keys in keywords.items():
         if any(key in text_lower for key in keys):
             tags.append(tag)
-
+            
     return tags if tags else []
 
 def get_similar_solutions(text: str) -> str:
@@ -146,7 +150,7 @@ def process_ticket(ticket_id: int, description: str):
         "ai_solution": f"AI Suggested Next Steps:\n{recommendations}",
         "category": category,
         "embedding": embedding,
-        "status": "DRAFT",
+        "status": "NEW",
         "updated_at": "now()"
     }
 
@@ -218,7 +222,6 @@ def startup_event():
     consumer_thread = threading.Thread(target=start_consumer, daemon=True)
     consumer_thread.start()
 
-# Health Check for Docker/K8s
 @app.get("/health")
 def health_check():
     return {"status": "AI Worker Running", "models": "loaded"}
