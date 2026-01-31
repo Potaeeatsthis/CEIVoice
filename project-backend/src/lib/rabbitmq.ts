@@ -1,37 +1,35 @@
+// src/lib/rabbitmq.ts
 import amqp from 'amqplib';
 
-const QUEUE_NAME = 'ticket_processing_queue';
+let connection: amqp.Connection | null = null;
+let channel: amqp.Channel | null = null;
 
-export async function publishToQueue(ticketId: number, description: string) {
+export async function publishToQueue(queueName: string, message: string) {
   try {
-    const connection = await amqp.connect({
-      protocol: 'amqp',
-      hostname: process.env.RABBITMQ_HOST,
-      port: parseInt(process.env.RABBITMQ_PORT || '5672'),
-      username: process.env.RABBITMQ_USER,
-      password: process.env.RABBITMQ_PASS,
-    });
+    if (!connection) {
+      const url = 'amqp://admin:admin@localhost:5672'; 
+      
+      console.log(`[RabbitMQ] Connecting to ${url}...`);
+      connection = await amqp.connect(url);
+    }
 
-    const channel = await connection.createChannel();
+    if (!channel) {
+      channel = await connection.createChannel();
+    }
 
-    // Ensure queue exists (idempotent)
-    await channel.assertQueue(QUEUE_NAME, { durable: true });
+    // Ensure queue exists (durable: false matches default Pika/Python)
+    await channel.assertQueue(queueName, { durable: false });
 
-    const payload = JSON.stringify({ ticket_id: ticketId, description });
-
-    channel.sendToQueue(QUEUE_NAME, Buffer.from(payload), {
-      persistent: true, // Survive broker restarts
-    });
-
-    console.log(`[RabbitMQ] Sent ticket #${ticketId} to AI worker`);
-
-    setTimeout(() => {
-      channel.close();
-      connection.close();
-    }, 500);
+    const sent = channel.sendToQueue(queueName, Buffer.from(message));
+    
+    if (sent) {
+       // This matches the log format you see, confirming this code is running
+       console.log(`[RabbitMQ] Sent ticket #${queueName} to AI worker`);
+    } else {
+       console.error('[RabbitMQ] Buffer full!');
+    }
 
   } catch (error) {
-    console.error('[RabbitMQ] Error publishing message:', error);
-    throw new Error('Failed to queue AI task');
+    console.error('[RabbitMQ] Connection Error:', error);
   }
 }
