@@ -20,13 +20,24 @@ export async function middleware(request: NextRequest) {
     return NextResponse.json({}, { headers: corsHeaders });
   }
 
-  // --- PAGE PROTECTION LOGIC ---
-  if (path.startsWith('/admin') && userRole !== 'ADMIN' && userRole !== 'ASSIGNEE') {
-    return NextResponse.redirect(new URL('/tickets/create', request.url));
+  // --- PAGE PROTECTION & ROUTING LOGIC ---
+
+  // 1. Specific Redirect for ASSIGNEE
+  // If an Assignee is at the wrong dashboard or root, send them to their specific route
+  if ((path.startsWith('/user') || path.startsWith('/admin')) && userRole === 'ASSIGNEE') {
+    return NextResponse.redirect(new URL('/assignee/tickets', request.url));
   }
 
-  if (path.startsWith('/user') && userRole === 'ADMIN') {
+  // 2. Specific Redirect for ADMIN
+  // If an Admin tries to access /user or /assignee, push them to /admin/tickets
+  if ((path.startsWith('/user') || path.startsWith('/assignee')) && userRole === 'ADMIN') {
     return NextResponse.redirect(new URL('/admin/tickets', request.url));
+  }
+
+  // 3. Protection for /admin and /assignee routes from standard USERS
+  if ((path.startsWith('/admin') || path.startsWith('/assignee')) && 
+      userRole !== 'ADMIN' && userRole !== 'ASSIGNEE') {
+    return NextResponse.redirect(new URL('/tickets/create', request.url));
   }
 
   // --- API PROTECTION LOGIC (JWT) ---
@@ -40,11 +51,9 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // 👇 FIXED: Check Header OR Cookie for the token
   const authHeader = request.headers.get('authorization');
   let token = authHeader?.split(' ')[1];
 
-  // If no header, check the cookie named 'token'
   if (!token) {
     token = request.cookies.get('token')?.value;
   }
@@ -76,7 +85,6 @@ export async function middleware(request: NextRequest) {
     return response;
 
   } catch (error) {
-    // If token is invalid (e.g. expired), we return 401
     return NextResponse.json(
       { error: 'Unauthorized: Invalid token' },
       { status: 401, headers: corsHeaders }
@@ -89,6 +97,8 @@ export const config = {
     '/api/tickets/:path*',
     '/api/users/:path*',
     '/admin/:path*', 
-    '/tickets/:path*', 
+    '/assignee/:path*', // Added new path to matcher
+    '/tickets/:path*',
+    '/user/:path*', 
   ],
 };
