@@ -348,7 +348,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                     value={draftStatus}
                     onChange={(e) => setDraftStatus(e.target.value as TicketStatus)}
                     disabled={isUpdating}
-                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all appearance-none"
+                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all"
                   >
                     <option value="NEW">New</option>
                     <option value="IN_PROGRESS">In Progress</option>
