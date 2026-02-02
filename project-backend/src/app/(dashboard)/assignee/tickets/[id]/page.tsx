@@ -42,7 +42,7 @@ async function getData(ticketId: string) {
   const { data: staffUsers } = await supabaseAdmin
     .from('users')
     .select('id, full_name, role')
-    .neq('role', 'USER');
+    .eq('role', 'ASSIGNEE');
 
   return {
     authorized: true,
