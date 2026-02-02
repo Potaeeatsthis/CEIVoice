@@ -17,7 +17,7 @@ async function getDraftData(id: string) {
   // 2. Fetch Potential Assignees (Staff)
   const { data: staff } = await supabaseAdmin
     .from('users')
-    .select('id, full_name')
+    .select('id, full_name, role')
     .in('role', ['ADMIN', 'ASSIGNEE']);
 
   return { draft, staff: staff || [] };

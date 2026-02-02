@@ -89,7 +89,9 @@ export default function DraftEditorForm({ draft, staff }: { draft: any; staff: a
             onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
           >
             <option value="">-- Unassigned --</option>
-            {staff.map((u) => (
+            {staff
+		.filter((u) => u.role?.toUpperCase() === 'ASSIGNEE')
+		.map((u) => (
               <option key={u.id} value={u.id}>{u.full_name}</option>
             ))}
           </select>
