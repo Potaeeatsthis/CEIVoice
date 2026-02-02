@@ -38,7 +38,7 @@ export default async function AssigneeTicketsPage() {
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">My Tickets</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-white">My Dashboard</h2>
           <p className="text-zinc-400 mt-1">All tickets assigned to me.</p>
         </div>
       </div>
