@@ -1,5 +1,10 @@
 // src/app/api/tickets/route.ts
 
+import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase';
+import { cookies } from 'next/headers';
+import { publishToQueue } from '@/lib/rabbitmq';
+
 export async function POST(request: Request) {
   try {
     let body;
