@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import PriorityIcon from './PriorityIcon'; // 👈 1. Import your new Icon
+import PriorityIcon from './PriorityIcon';
 
 // Reuse your Ticket type
 type Ticket = {
@@ -11,7 +11,8 @@ type Ticket = {
   title: string | null;
   description: string;
   status: 'DRAFT' | 'NEW' | 'IN_PROGRESS' | 'SOLVED' | 'FAILED' | 'MERGED';
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'; // Added URGENT to match your other files
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  deadline: string | null; // 👈 1. Add deadline to type
   created_at: string;
   assigned_to_user: { full_name: string } | null;
   created_by_user: { full_name: string; email: string } | null;
@@ -41,6 +42,11 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
       }
       if (key === 'priority') {
         return (priorityRank[a.priority] - priorityRank[b.priority]) * (direction === 'asc' ? 1 : -1);
+      }
+      // Handle null deadlines (pushes them to the bottom usually)
+      if (key === 'deadline') {
+        if (!aValue) return 1; 
+        if (!bValue) return -1;
       }
       
       if (aValue < bValue) return direction === 'asc' ? -1 : 1;
@@ -74,6 +80,9 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
             <th className="px-6 py-3 font-medium cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('priority')}>
               Priority {getSortIcon('priority')}
             </th>
+            <th className="px-6 py-3 font-medium cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('deadline')}>
+              Deadline {getSortIcon('deadline')}
+            </th>
             <th className="px-6 py-3 font-medium cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('assignee')}>
               Assignee {getSortIcon('assignee')}
             </th>
@@ -94,11 +103,20 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
               </td>
               <td className="px-6 py-4"><StatusBadge status={ticket.status} /></td>
               
-              {/* 👇 2. REPLACE THE TEXT BADGE WITH THE ICON */}
               <td className="px-6 py-4">
                 <div className="flex items-center"> 
                   <PriorityIcon priority={ticket.priority} />
                 </div>
+              </td>
+
+              <td className="px-6 py-4 text-zinc-400">
+                {ticket.deadline ? (
+                    <span className="text-zinc-300 font-mono text-xs">
+                        {new Date(ticket.deadline).toLocaleDateString()}
+                    </span>
+                ) : (
+                    <span className="text-zinc-700">-</span>
+                )}
               </td>
 
               <td className="px-6 py-4 text-zinc-400">
@@ -138,4 +156,3 @@ function StatusBadge({ status }: { status: string }) {
     </span>
   );
 }
-
