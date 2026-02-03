@@ -1,59 +1,5 @@
 // src/app/api/tickets/route.ts
 
-import { NextResponse } from 'next/server';
-import { supabase, supabaseAdmin } from '@/lib/supabase';
-import { publishToQueue } from '@/lib/rabbitmq';
-
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const status = searchParams.get('status');
-  const assignee = searchParams.get('assignee');
-
-  // Get Role and ID from headers (set by middleware)
-  const userRole = request.headers.get('x-user-role');
-  const userId = request.headers.get('x-user-id');
-
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // --- USE RPC for Unread Counts ---
-  // We call the Postgres function to get ticket data + unread_count in one go
-  let query = supabaseAdmin.rpc('get_tickets_with_stats', { 
-    current_user_id: userId 
-  });
-
-  // --- ROLE RESTRICTION ---
-  if (userRole === 'USER') {
-    // Users can ONLY see tickets they created
-    query = query.eq('created_by', userId);
-  } else {
-    // Admins/Assignees can filter manually
-    if (assignee) query = query.eq('assigned_to', assignee);
-
-    // Default: If I am an Assignee and I didn't ask for a specific filter,
-    // show me MY tickets.
-    if (userRole === 'ASSIGNEE' && !assignee && !status) {
-       query = query.eq('assigned_to', userId);
-    }
-  }
-
-  // Optional: Filter by Status
-  if (status) query = query.eq('status', status);
-
-  // Sort by newest first
-  query = query.order('created_at', { ascending: false });
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error("Supabase Fetch Error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ data });
-}
-
 export async function POST(request: Request) {
   try {
     let body;
@@ -85,9 +31,14 @@ export async function POST(request: Request) {
 
     if (error) throw error;
 
+    const QUEUE_NAME = 'ticket_processing_queue';
 
-    await publishToQueue(ticket.id.toString(), ticket.description);
+    const payload = JSON.stringify({
+      ticket_id: ticket.id,
+      description: ticket.description
+    });
 
+    await publishToQueue(QUEUE_NAME, payload);
 
     return NextResponse.json({
       success: true,

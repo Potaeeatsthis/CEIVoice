@@ -18,7 +18,7 @@ export async function publishToQueue(queueName: string, message: string) {
     }
 
     // Ensure queue exists (durable: false matches default Pika/Python)
-    await channel.assertQueue(queueName, { durable: false });
+    await channel.assertQueue(queueName, { durable: true });
 
     const sent = channel.sendToQueue(queueName, Buffer.from(message));
     
