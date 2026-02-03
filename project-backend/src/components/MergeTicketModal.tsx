@@ -3,6 +3,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 export default function MergeTicketModal({ parentTicketId }: { parentTicketId: string }) {
@@ -64,8 +65,14 @@ export default function MergeTicketModal({ parentTicketId }: { parentTicketId: s
         onClick={() => setIsOpen(true)}
         className="px-3 py-1.5 text-xs font-medium text-purple-400 border border-purple-900/50 bg-purple-950/20 rounded hover:bg-purple-900/40 transition-colors flex items-center gap-2"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 3 4 8 5-5"/><path d="M4 8a10 10 0 0 1 10-5"/><path d="m8 21 4-8 5 5"/><path d="M4 16a10 10 0 0 0 10 5"/></svg>
-        Merge Ticket
+	<Image 
+	    src="https://img.icons8.com/?size=100&id=dIC1iMZReudG&format=png&color=A855F7" // Changed color to match your purple theme
+	    alt="Merge Icon"
+	    width={14}
+	    height={14}
+	    unoptimized // Required for external URLs unless configured in next.config.ts
+	  />
+	Merge Ticket
       </button>
 
       {/* Modal Overlay */}
