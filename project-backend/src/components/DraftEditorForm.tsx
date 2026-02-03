@@ -68,6 +68,16 @@ export default function DraftEditorForm({ draft, staff }: { draft: any; staff: a
         </div>
       </div>
 
+      <div>
+          <label className="block text-sm font-medium text-zinc-400 mb-1">Deadline</label>
+          <input
+            type="date"
+            className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-white outline-none focus:border-blue-500"
+            value={formData.deadline} // This state already exists in your code
+            onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+          />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-zinc-400 mb-1">Priority</label>
@@ -117,3 +127,4 @@ export default function DraftEditorForm({ draft, staff }: { draft: any; staff: a
     </form>
   );
 }
+
