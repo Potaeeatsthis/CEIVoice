@@ -4,15 +4,13 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { cookies } from 'next/headers';
 
-// 1. GET: Fetch a single ticket (Used by the Ticket Detail Page)
+// GET remains the same...
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params; // Next.js 15 requirement
-    
-    // Check Auth
+    const { id } = await params;
     const cookieStore = await cookies();
     const userId = cookieStore.get('user_id')?.value;
 
@@ -38,7 +36,7 @@ export async function GET(
   }
 }
 
-// 2. PATCH: Update Ticket Details (Status, Priority, Assignee)
+// 👇 THIS IS THE FIXED FUNCTION
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -50,22 +48,37 @@ export async function PATCH(
     const cookieStore = await cookies();
     const userRole = cookieStore.get('user_role')?.value;
 
-    // Only Staff can update tickets via this route
     if (userRole !== 'ADMIN' && userRole !== 'ASSIGNEE') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
     
-    // Extract only allowed fields to prevent arbitrary updates
-    const { status, priority, assigned_to } = body;
+    // ✅ FIX: We now extract ALL fields, including deadline
+    const { 
+      title, 
+      description, 
+      status, 
+      priority, 
+      category, 
+      deadline, 
+      assigned_to 
+    } = body;
 
     // Construct update object dynamically
     const updates: any = { updated_at: new Date().toISOString() };
+    
+    // Update fields if they exist in the request
+    if (title !== undefined) updates.title = title;
+    if (description !== undefined) updates.description = description;
     if (status) updates.status = status;
     if (priority) updates.priority = priority;
+    if (category) updates.category = category;
     
-    // Handle "Unassigned" (null) specifically
+    // ✅ Fix for Deadline
+    if (deadline !== undefined) updates.deadline = deadline;
+    
+    // Handle "Unassigned"
     if (assigned_to === '') {
         updates.assigned_to = null;
     } else if (assigned_to) {
