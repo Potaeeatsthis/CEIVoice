@@ -3,165 +3,168 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
-export default function MergeTicketModal({ parentTicketId }: { parentTicketId: string }) {
+interface MergeTicketModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  selectedTicketIds: number[];
+  onSuccess: () => void;
+}
+
+export default function MergeTicketModal({ isOpen, onClose, selectedTicketIds, onSuccess }: MergeTicketModalProps) {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
-  const [step, setStep] = useState<'INPUT' | 'CONFIRM'>('INPUT');
-  const [childId, setChildId] = useState('');
+  
+  // Form State for the NEW Consolidated Ticket
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState('MEDIUM');
   const [loading, setLoading] = useState(false);
 
-  const handleClose = () => {
-    setIsOpen(false);
-    setStep('INPUT');
-    setChildId('');
-  };
+  // If not open, don't render anything
+  if (!isOpen) return null;
 
-  const handleNextStep = () => {
-    if (!childId) return;
-    // Prevent merging into self
-    if (childId === parentTicketId.toString()) {
-      alert("Cannot merge a ticket into itself.");
+  const handleMerge = async () => {
+    if (!title.trim() || !description.trim()) {
+      alert('Please provide a Title and Summary for the new ticket.');
       return;
     }
-    setStep('CONFIRM');
-  };
-
-  const executeMerge = async () => {
+    
     setLoading(true);
     try {
+      // ✅ FIX: Use the correct endpoint '/api/admin/merge'
       const res = await fetch('/api/admin/merge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          parentTicketId: parentTicketId,
-          childTicketIds: [childId] // Send as array
-        }),
+          ticketIds: selectedTicketIds,
+          title,
+          description,
+          priority
+        })
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Merge failed');
+        // Safe error handling to avoid JSON parse crashes on 404s
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+          const err = await res.json();
+          throw new Error(err.error || 'Merge failed');
+        } else {
+          throw new Error(`Server returned ${res.status} ${res.statusText}`);
+        }
       }
 
-      // Success
-      handleClose();
+      // Success Logic
+      onSuccess(); // Triggers table refresh
+      onClose();   // Closes modal
       router.refresh(); 
-      // Optional: You could show a specialized "Toast" or success state here instead of alert
-      // alert('Tickets merged successfully'); 
+
     } catch (error: any) {
-      alert(error.message);
+      console.error(error);
+      alert(`Error: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <>
-      {/* Trigger Button */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="px-3 py-1.5 text-xs font-medium text-purple-400 border border-purple-900/50 bg-purple-950/20 rounded hover:bg-purple-900/40 transition-colors flex items-center gap-2"
-      >
-	<Image 
-	    src="https://img.icons8.com/?size=100&id=dIC1iMZReudG&format=png&color=A855F7" // Changed color to match your purple theme
-	    alt="Merge Icon"
-	    width={14}
-	    height={14}
-	    unoptimized // Required for external URLs unless configured in next.config.ts
-	  />
-	Merge Ticket
-      </button>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        
+        {/* --- Header --- */}
+        <div className="px-6 py-4 border-b border-zinc-800 bg-zinc-900/50 flex justify-between items-center">
+          <div>
+            <h2 className="text-lg font-bold text-white">Merge Tickets</h2>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Consolidating <span className="text-emerald-400 font-mono font-bold">{selectedTicketIds.length}</span> tickets into a new Draft.
+            </p>
+          </div>
+          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
 
-      {/* Modal Overlay */}
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-lg shadow-2xl p-6 relative overflow-hidden">
-            
-            {/* STEP 1: INPUT ID */}
-            {step === 'INPUT' && (
-              <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-                <div>
-                  <h3 className="text-lg font-bold text-white mb-1">Merge Ticket</h3>
-                  <p className="text-sm text-zinc-400">
-                    Enter the ID of the duplicate ticket to merge into this one.
-                  </p>
-                </div>
+        {/* --- Body --- */}
+        <div className="p-6 space-y-5">
+          
+          {/* Title Input */}
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+              New Master Title
+            </label>
+            <input 
+              type="text" 
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Consolidated Network Issues - Floor 2"
+              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all placeholder:text-zinc-600"
+              autoFocus
+            />
+          </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-zinc-500 uppercase mb-1">Duplicate Ticket ID</label>
-                  <input
-                    type="text"
-                    value={childId}
-                    onChange={(e) => setChildId(e.target.value.replace(/\D/g, ''))} // Numbers only
-                    placeholder="e.g. 45"
-                    className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 placeholder:text-zinc-600 transition-all"
-                    autoFocus
-                    onKeyDown={(e) => e.key === 'Enter' && handleNextStep()}
-                  />
-                </div>
+          {/* Description Input */}
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+              Summary & Reason
+            </label>
+            <textarea 
+              rows={4}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe the common issue linking these tickets..."
+              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-300 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all resize-none placeholder:text-zinc-600"
+            />
+          </div>
 
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    onClick={handleClose}
-                    className="px-3 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleNextStep}
-                    disabled={!childId}
-                    className="px-4 py-2 text-sm font-medium bg-purple-600 hover:bg-purple-500 text-white rounded shadow-lg shadow-purple-900/20 disabled:opacity-50 transition-all"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* STEP 2: CONFIRMATION (Replaces the native popup) */}
-            {step === 'CONFIRM' && (
-              <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-red-950/30 border border-red-900/50 rounded-full text-red-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-1">Confirm Merge</h3>
-                    <p className="text-sm text-zinc-400">
-                      Are you sure you want to merge <span className="text-white font-mono">Ticket #{childId}</span> into this ticket?
-                    </p>
-                    <p className="text-xs text-red-400 mt-2 bg-red-950/20 border border-red-900/30 px-2 py-1 rounded">
-                      Warning: Ticket #{childId} will be permanently closed.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4">
-                  <button
-                    onClick={() => setStep('INPUT')}
-                    className="px-3 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
-                    disabled={loading}
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={executeMerge}
-                    disabled={loading}
-                    className="px-4 py-2 text-sm font-medium bg-purple-600 hover:bg-purple-500 text-white rounded shadow-lg shadow-purple-900/20 disabled:opacity-50 transition-all flex items-center gap-2"
-                  >
-                    {loading && <span className="animate-spin text-white/50">⟳</span>}
-                    {loading ? 'Merging...' : 'Confirm Merge'}
-                  </button>
-                </div>
-              </div>
-            )}
-
+          {/* Priority Select */}
+          <div>
+             <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+               Priority Level
+             </label>
+             <div className="relative">
+               <select 
+                 value={priority} 
+                 onChange={(e) => setPriority(e.target.value)}
+                 className="w-full bg-zinc-900 border border-zinc-700 rounded-lg pl-3 pr-8 py-2.5 text-sm text-white appearance-none focus:outline-none focus:border-emerald-500/50 cursor-pointer"
+               >
+                 <option value="LOW">Low</option>
+                 <option value="MEDIUM">Medium</option>
+                 <option value="HIGH">High</option>
+                 <option value="URGENT">Urgent</option>
+               </select>
+               {/* Custom Arrow */}
+               <div className="absolute right-3 top-3 pointer-events-none text-zinc-500">
+                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+               </div>
+             </div>
           </div>
         </div>
-      )}
-    </>
+
+        {/* --- Footer --- */}
+        <div className="px-6 py-4 bg-zinc-900/30 border-t border-zinc-800 flex justify-end gap-3">
+          <button 
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
+          >
+            Cancel
+          </button>
+          <button 
+            onClick={handleMerge}
+            disabled={loading}
+            className="px-4 py-2 text-xs font-bold text-black bg-emerald-500 hover:bg-emerald-400 rounded-lg shadow-[0_0_15px_rgba(16,185,129,0.2)] disabled:opacity-50 disabled:shadow-none transition-all flex items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <svg className="animate-spin h-3 w-3 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Merging...
+              </>
+            ) : (
+              'Confirm Merge'
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
