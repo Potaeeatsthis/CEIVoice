@@ -1,9 +1,11 @@
+// src/components/DraftEditor.tsx
+
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PriorityIcon from './PriorityIcon';
-import Toast from './Toast'; // 👈 1. Import Toast
+import Toast from './Toast';
 
 type User = { id: string; full_name: string; role?: string; };
 type Ticket = {
@@ -22,10 +24,9 @@ type Ticket = {
 export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allUsers: User[] }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  
-  // 👈 2. Add Toast State
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
+  // Form State
   const [formData, setFormData] = useState({
     title: ticket.title || '',
     description: ticket.description || '',
@@ -60,7 +61,6 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
         router.push('/admin/tickets');
       } else {
         router.refresh();
-        // 👈 3. Trigger the Beautiful Toast instead of alert()
         setToast({ msg: 'Draft changes saved successfully.', type: 'success' });
       }
     } catch (error) {
@@ -77,7 +77,6 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
   return (
     <div className="max-w-6xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
       
-      {/* 👈 4. Render Toast Container */}
       {toast && (
         <Toast 
           message={toast.msg} 
@@ -252,20 +251,24 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
             </div>
           </div>
 
-          {/* Original Request Info */}
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-             <div className="flex items-center gap-3 mb-3">
-               <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-[10px] font-bold text-white shadow-lg">
-                 {ticket.created_by_user.email.charAt(0).toUpperCase()}
+             <div className="flex items-center justify-between gap-3">
+               
+               <div className="flex items-center gap-3">
+                 <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-[10px] font-bold text-white shadow-lg">
+                   {ticket.created_by_user.email.charAt(0).toUpperCase()}
+                 </div>
+                 <div>
+                    <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Requested By</div>
+                    <div className="text-xs text-zinc-200">{ticket.created_by_user.email}</div>
+                 </div>
                </div>
-               <div>
-                  <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Requested By</div>
-                  <div className="text-xs text-zinc-200">{ticket.created_by_user.email}</div>
+
+               <div className="text-right">
+                  <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Submitted</div>
+                  <div className="text-xs font-mono text-zinc-400">{new Date(ticket.created_at).toLocaleDateString()}</div>
                </div>
-             </div>
-             <div className="pt-3 border-t border-zinc-800 text-[10px] text-zinc-500 flex justify-between">
-                <span>Submitted on</span>
-                <span className="font-mono text-zinc-400">{new Date(ticket.created_at).toLocaleDateString()}</span>
+
              </div>
           </div>
 
