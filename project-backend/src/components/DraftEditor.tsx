@@ -113,7 +113,7 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
           <button 
             onClick={() => handleAction('SUBMIT')} 
             disabled={loading}
-            className="px-5 py-2.5 text-xs font-bold text-black bg-emerald-500 hover:bg-emerald-400 rounded-lg shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] transition-all disabled:opacity-50 flex items-center gap-2"
+            className="px-5 py-2.5 text-xs font-bold text-black bg-emerald-500 hover:bg-emerald-400 rounded-lg shadow-[0_0_25px_rgba(16,185,129,0.4)] transition-all disabled:opacity-50 flex items-center gap-2"
           >
             {loading ? 'Processing...' : (
                 <>
@@ -129,7 +129,7 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
         
         {/* --- LEFT: MAIN CONTENT (8 cols) --- */}
         <div className="lg:col-span-8 space-y-6">
-          <div className={cardBase}>
+          <div className={`${cardBase} flex flex-col h-full`}>
             {/* Title Input */}
             <div className="mb-8">
                <label className={labelBase}>
@@ -146,17 +146,16 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
             </div>
 
             {/* Description Input */}
-            <div>
+            <div className="flex-1 flex flex-col">
               <label className={labelBase}>
                 <svg className="w-3 h-3 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
                 Description & Details
               </label>
-              <div className="relative">
+              <div className="relative flex-1">
                 <textarea 
-                  rows={15}
                   value={formData.description} 
                   onChange={(e) => handleChange('description', e.target.value)}
-                  className={`${inputBase} font-mono text-sm leading-relaxed resize-none`}
+                  className={`${inputBase} font-mono text-sm leading-relaxed resize-none h-full`}
                 />
                 <div className="absolute bottom-4 right-4 text-[10px] text-zinc-600 font-mono pointer-events-none">
                   markdown supported
@@ -251,22 +250,22 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
             </div>
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-             <div className="flex items-center justify-between gap-3">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+             <div className="flex items-center justify-between gap-4">
                
-               <div className="flex items-center gap-3">
-                 <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-[10px] font-bold text-white shadow-lg">
+               <div className="flex items-center gap-3 min-w-0">
+                 <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white shadow-lg shrink-0">
                    {ticket.created_by_user.email.charAt(0).toUpperCase()}
                  </div>
-                 <div>
-                    <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Requested By</div>
-                    <div className="text-xs text-zinc-200">{ticket.created_by_user.email}</div>
+                 <div className="min-w-0">
+                    <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-0.5">Requested By</div>
+                    <div className="text-sm text-zinc-200 truncate">{ticket.created_by_user.email}</div>
                  </div>
                </div>
 
-               <div className="text-right">
-                  <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Submitted</div>
-                  <div className="text-xs font-mono text-zinc-400">{new Date(ticket.created_at).toLocaleDateString()}</div>
+               <div className="text-right shrink-0">
+                  <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-0.5">Submitted</div>
+                  <div className="text-sm font-mono text-zinc-300">{new Date(ticket.created_at).toLocaleDateString()}</div>
                </div>
 
              </div>
