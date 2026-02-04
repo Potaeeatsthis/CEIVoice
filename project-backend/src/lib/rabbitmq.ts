@@ -1,5 +1,12 @@
 // src/lib/rabbitmq.ts
 import amqp from 'amqplib';
+import dotenv from 'dotenv';
+
+const RABBITMQ_USER = process.env.RABBITMQ_USER || 'guest';
+const RABBITMQ_PASS = process.env.RABBITMQ_PASS || 'guest';
+const RABBITMQ_HOST = process.env.RABBITMQ_HOST || 'localhost';
+
+const url = `amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}:5672`;
 
 let connection: amqp.Connection | null = null;
 let channel: amqp.Channel | null = null;
@@ -7,8 +14,7 @@ let channel: amqp.Channel | null = null;
 export async function publishToQueue(queueName: string, message: string) {
   try {
     if (!connection) {
-      const url = 'amqp://admin:admin@localhost:5672'; 
-      
+
       console.log(`[RabbitMQ] Connecting to ${url}...`);
       connection = await amqp.connect(url);
     }

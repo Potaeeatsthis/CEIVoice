@@ -150,7 +150,7 @@ def process_ticket(ticket_id: int, description: str):
         "ai_solution": f"AI Suggested Next Steps:\n{recommendations}",
         "category": category,
         "embedding": embedding,
-        "status": "NEW",
+        "status": "DRAFT",
         "updated_at": "now()"
     }
 
