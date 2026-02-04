@@ -1,16 +1,22 @@
 // src/app/(dashboard)/admin/tickets/page.tsx
 import { supabaseAdmin } from '@/lib/supabase';
-import AdminTicketTable from '@/components/AdminTicketTable'; // Make sure to import the new component
+import AdminTicketTable from '@/components/AdminTicketTable'; 
 
 async function getTickets() {
   const { data, error } = await supabaseAdmin
     .from('tickets')
     .select(`
-      *,
+      id,
+      title,
+      description,
+      status,
+      priority,
+      deadline, 
+      created_at,
       assigned_to_user:users!tickets_assigned_to_fkey (full_name),
       created_by_user:users!tickets_created_by_fkey (full_name, email)
     `)
-    .order('created_at', { ascending: false }); // Default sort from DB
+    .order('created_at', { ascending: false }); 
 
   if (error) {
     console.error("❌ Admin Query Error:", error.message);
