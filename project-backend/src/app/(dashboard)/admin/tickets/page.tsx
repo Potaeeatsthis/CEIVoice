@@ -1,42 +1,65 @@
 // src/app/(dashboard)/admin/tickets/page.tsx
+
 import { supabaseAdmin } from '@/lib/supabase';
 import AdminTicketTable from '@/components/AdminTicketTable'; 
+import TicketToolbar from '@/components/TicketToolbar';
 
-async function getTickets() {
+// 1. Fetch Global Stats
+async function getGlobalStats() {
   const { data, error } = await supabaseAdmin
     .from('tickets')
+    .select('status');
+
+  if (error || !data) return { total: 0, pending: 0, inProgress: 0, solved: 0 };
+
+  return {
+    total: data.length,
+    pending: data.filter((t) => t.status === 'NEW').length,
+    inProgress: data.filter((t) => t.status === 'IN_PROGRESS').length,
+    solved: data.filter((t) => t.status === 'SOLVED').length,
+  };
+}
+
+// 2. Fetch Filtered Tickets
+async function getTickets(searchParams: { [key: string]: string | undefined }) {
+  const query = searchParams?.q || '';
+  const status = searchParams?.status;
+  const priority = searchParams?.priority;
+
+  let supabaseQuery = supabaseAdmin
+    .from('tickets')
     .select(`
-      id,
-      title,
-      description,
-      status,
-      priority,
-      deadline, 
-      created_at,
+      id, title, description, status, priority, deadline, created_at,
       assigned_to_user:users!tickets_assigned_to_fkey (full_name),
       created_by_user:users!tickets_created_by_fkey (full_name, email)
     `)
-    .neq('status', 'MERGED') // 👈 THIS LINE hides the merged tickets
-    .order('created_at', { ascending: false }); 
+    .neq('status', status === 'MERGED' ? 'IGNORE_THIS_FILTER' : 'MERGED')
+    .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error("❌ Admin Query Error:", error.message);
-    return [];
-  }
+  if (status) supabaseQuery = supabaseQuery.eq('status', status);
+  if (priority) supabaseQuery = supabaseQuery.eq('priority', priority);
   
-  return (data as any[]) || [];
+  if (query) {
+    if (!isNaN(Number(query))) {
+      supabaseQuery = supabaseQuery.eq('id', query);
+    } else {
+      supabaseQuery = supabaseQuery.ilike('title', `%${query}%`);
+    }
+  }
+
+  const { data, error } = await supabaseQuery;
+  return error ? [] : (data as any[]) || [];
 }
 
-export default async function AdminTicketsPage() {
-  const tickets = await getTickets();
-
-  // Calculate stats (Merged tickets won't be counted anymore, which is correct)
-  const stats = {
-    total: tickets.length,
-    pending: tickets.filter((t) => t.status === 'NEW').length,
-    inProgress: tickets.filter((t) => t.status === 'IN_PROGRESS').length,
-    solved: tickets.filter((t) => t.status === 'SOLVED').length,
-  };
+export default async function AdminTicketsPage(props: {
+  searchParams: Promise<{ [key: string]: string | undefined }>
+}) {
+  const params = await props.searchParams;
+  
+  const [tickets, stats] = await Promise.all([
+    getTickets(params),
+    getGlobalStats()
+  ]);
 
   return (
     <div className="space-y-8">
@@ -48,19 +71,20 @@ export default async function AdminTicketsPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Total" value={stats.total} />
+        <StatCard label="Total Tickets" value={stats.total} />
         <StatCard label="Pending" value={stats.pending} color="blue" />
         <StatCard label="In Progress" value={stats.inProgress} color="amber" />
         <StatCard label="Solved" value={stats.solved} color="emerald" />
       </div>
 
-      {/* Render the Client Component */}
-      <AdminTicketTable initialTickets={tickets} />
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+        <TicketToolbar />
+        <AdminTicketTable initialTickets={tickets} />
+      </div>
     </div>
   );
 }
 
-// StatCard component
 function StatCard({ label, value, color = "zinc" }: any) {
   const colors: any = {
     zinc: "text-white border-zinc-800",

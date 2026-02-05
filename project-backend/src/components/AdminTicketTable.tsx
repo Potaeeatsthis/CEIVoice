@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import PriorityIcon from './PriorityIcon';
 import MergeTicketModal from './MergeTicketModal';
@@ -21,7 +21,7 @@ type Ticket = {
 
 const priorityRank: Record<string, number> = { URGENT: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
 
-// ✨ NEW: Helper function for DD-MM-YYYY format
+// Helper for DD-MM-YYYY format
 const formatDate = (dateString: string | null) => {
   if (!dateString) return '-';
   return new Date(dateString).toLocaleDateString('en-GB', {
@@ -34,12 +34,15 @@ const formatDate = (dateString: string | null) => {
 export default function AdminTicketTable({ initialTickets }: { initialTickets: Ticket[] }) {
   const [tickets, setTickets] = useState(initialTickets);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
-  
-  // Selection State
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
 
-  // --- Sorting Logic ---
+  // ✨ THIS IS THE ONLY CHANGE: Syncs table when you search/filter
+  useEffect(() => {
+    setTickets(initialTickets);
+    setSelectedIds([]); 
+  }, [initialTickets]);
+
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
@@ -73,7 +76,6 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
     return sortConfig.direction === 'asc' ? <span className="ml-1 text-white">↑</span> : <span className="ml-1 text-white">↓</span>;
   };
 
-  // --- Selection Logic ---
   const toggleSelectAll = () => {
     if (selectedIds.length === tickets.length) {
       setSelectedIds([]);
@@ -96,7 +98,6 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-900/50 text-zinc-400">
-              {/* Checkbox Column */}
               <th className="px-6 py-3 w-10">
                 <input 
                   type="checkbox" 
@@ -117,7 +118,6 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
           <tbody className="divide-y divide-zinc-800">
             {tickets.map((ticket) => (
               <tr key={ticket.id} className={`group transition-colors ${selectedIds.includes(ticket.id) ? 'bg-emerald-950/10' : 'hover:bg-zinc-900/30'}`}>
-                {/* Row Checkbox */}
                 <td className="px-6 py-4">
                   <input 
                     type="checkbox" 
@@ -133,8 +133,6 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
                 </td>
                 <td className="px-6 py-4"><StatusBadge status={ticket.status} /></td>
                 <td className="px-6 py-4"><div className="flex items-center"><PriorityIcon priority={ticket.priority} /></div></td>
-                
-                {/* ✨ UPDATED: Apply formatDate here */}
                 <td className="px-6 py-4 text-zinc-400">
                   {ticket.deadline ? (
                       <span className="text-zinc-300 font-mono text-xs">
@@ -142,7 +140,6 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
                       </span>
                   ) : <span className="text-zinc-700">-</span>}
                 </td>
-
                 <td className="px-6 py-4 text-zinc-400">
                   {ticket.assigned_to_user?.full_name || <span className="text-zinc-600 italic">Unassigned</span>}
                 </td>
@@ -161,7 +158,6 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
         {tickets.length === 0 && <div className="p-12 text-center text-zinc-500 border-t border-zinc-800">No tickets found.</div>}
       </div>
 
-      {/* Bulk Action Bar (Floating) */}
       {selectedIds.length > 0 && (
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-zinc-900 border border-zinc-700 shadow-2xl rounded-full px-6 py-3 flex items-center gap-6 z-50 animate-in fade-in slide-in-from-bottom-4">
           <div className="text-sm font-medium text-white">
@@ -185,7 +181,6 @@ export default function AdminTicketTable({ initialTickets }: { initialTickets: T
         </div>
       )}
 
-      {/* Merge Modal */}
       {isMergeModalOpen && (
         <MergeTicketModal 
           isOpen={isMergeModalOpen}
