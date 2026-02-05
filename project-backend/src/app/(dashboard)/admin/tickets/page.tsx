@@ -16,6 +16,7 @@ async function getTickets() {
       assigned_to_user:users!tickets_assigned_to_fkey (full_name),
       created_by_user:users!tickets_created_by_fkey (full_name, email)
     `)
+    .neq('status', 'MERGED') // 👈 THIS LINE hides the merged tickets
     .order('created_at', { ascending: false }); 
 
   if (error) {
@@ -29,7 +30,7 @@ async function getTickets() {
 export default async function AdminTicketsPage() {
   const tickets = await getTickets();
 
-  // Calculate stats on the server side
+  // Calculate stats (Merged tickets won't be counted anymore, which is correct)
   const stats = {
     total: tickets.length,
     pending: tickets.filter((t) => t.status === 'NEW').length,
@@ -53,13 +54,13 @@ export default async function AdminTicketsPage() {
         <StatCard label="Solved" value={stats.solved} color="emerald" />
       </div>
 
-      {/* Render the Client Component which handles the sorting */}
+      {/* Render the Client Component */}
       <AdminTicketTable initialTickets={tickets} />
     </div>
   );
 }
 
-// StatCard is static so it can stay here
+// StatCard component
 function StatCard({ label, value, color = "zinc" }: any) {
   const colors: any = {
     zinc: "text-white border-zinc-800",
