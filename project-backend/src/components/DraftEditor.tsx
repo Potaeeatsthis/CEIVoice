@@ -265,7 +265,14 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
 
                <div className="text-right shrink-0">
                   <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-0.5">Submitted</div>
-                  <div className="text-sm font-mono text-zinc-300">{new Date(ticket.created_at).toLocaleDateString()}</div>
+                  {/* ✨ UPDATED: Forced DD-MM-YYYY format */}
+                  <div className="text-sm font-mono text-zinc-300">
+                    {new Date(ticket.created_at).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                    }).replace(/\//g, '-')}
+                  </div>
                </div>
 
              </div>
