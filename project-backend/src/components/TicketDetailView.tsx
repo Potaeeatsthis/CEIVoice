@@ -36,14 +36,22 @@ type Ticket = {
   created_by_user: { full_name: string; email: string };
 };
 
+// Type for child tickets
+type LinkedTicket = {
+  id: string;
+  title: string;
+  status: string;
+  created_by_user: { email: string };
+};
+
 interface TicketDetailViewProps {
   ticket: Ticket;
   comments: Comment[];
   currentUser: { id: string; role: string };
   allUsers: User[];
+  linkedTickets?: LinkedTicket[];
 }
 
-// --- 🎨 NEW: Helper Component for Priority Icons ---
 function PriorityDisplay({ priority }: { priority: string }) {
   const getLevel = () => {
     switch (priority) {
@@ -76,7 +84,6 @@ function PriorityDisplay({ priority }: { priority: string }) {
 
   return (
     <div className="flex items-center gap-3">
-      {/* The Dots Icon */}
       <div className="flex gap-1 h-3 items-center">
         {[1, 2, 3, 4].map((i) => (
           <div
@@ -88,7 +95,6 @@ function PriorityDisplay({ priority }: { priority: string }) {
           />
         ))}
       </div>
-      {/* The Text Label */}
       <span className={`text-sm font-bold tracking-wide ${getTextColor()}`}>
         {priority}
       </span>
@@ -96,8 +102,7 @@ function PriorityDisplay({ priority }: { priority: string }) {
   );
 }
 
-
-export default function TicketDetailView({ ticket, comments, currentUser, allUsers }: TicketDetailViewProps) {
+export default function TicketDetailView({ ticket, comments, currentUser, allUsers, linkedTickets = [] }: TicketDetailViewProps) {
   const router = useRouter();
   const bottomRef = useRef<HTMLDivElement>(null);
   
@@ -105,6 +110,11 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   const [isInternal, setIsInternal] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  
+  // ✨ NEW: Modal States
+  const [unlinkModalOpen, setUnlinkModalOpen] = useState(false);
+  const [ticketToUnlink, setTicketToUnlink] = useState<string | null>(null);
+  const [isUnlinking, setIsUnlinking] = useState(false);
 
   // -- Draft States --
   const [draftStatus, setDraftStatus] = useState<TicketStatus>(ticket.status);
@@ -185,8 +195,38 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
     }
   };
 
+  // ✨ Step 1: Trigger the custom modal
+  const promptUnlink = (childId: string) => {
+    setTicketToUnlink(childId);
+    setUnlinkModalOpen(true);
+  };
+
+  // ✨ Step 2: Execute the Unlink Action
+  const executeUnlink = async () => {
+    if (!ticketToUnlink) return;
+    
+    setIsUnlinking(true);
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}/unlink`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ childTicketId: ticketToUnlink })
+      });
+
+      if (!res.ok) throw new Error('Unlink failed');
+
+      router.refresh();
+      setUnlinkModalOpen(false); // Close on success
+      setTicketToUnlink(null);
+    } catch (error) {
+      alert('Failed to unlink ticket');
+    } finally {
+      setIsUnlinking(false);
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-140px)]">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-140px)] relative">
       
       {/* LEFT COLUMN: Chat Interface */}
       <div className="lg:col-span-2 flex flex-col bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden shadow-sm">
@@ -203,7 +243,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-black/20">
-          
           {/* Description */}
           <div className="flex gap-3">
              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-xs font-bold border border-indigo-500/30">
@@ -232,44 +271,22 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
           {/* Comments */}
           {comments.map((comment) => {
             if (comment.is_internal && !isStaff) return null;
-
             const isMe = comment.user_id === currentUser.id;
             const isInternalNote = comment.is_internal;
 
             return (
               <div key={comment.id} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                 <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border
-                  ${isInternalNote 
-                    ? 'bg-amber-900/20 border-amber-600/40 text-amber-500' 
-                    : isMe 
-                      ? 'bg-zinc-800 text-zinc-300 border-zinc-700'
-                      : 'bg-zinc-700 text-zinc-300 border-zinc-600'
-                  }`}
-                >
+                  ${isInternalNote ? 'bg-amber-900/20 border-amber-600/40 text-amber-500' : isMe ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-zinc-700 text-zinc-300 border-zinc-600'}`}>
                   {comment.user.full_name.charAt(0)}
                 </div>
-
                 <div className={`flex flex-col max-w-[75%] ${isMe ? 'items-end' : 'items-start'}`}>
                   <div className="flex items-center gap-2 mb-1 px-1">
                     {!isMe && <span className="text-xs font-medium text-zinc-400">{comment.user.full_name}</span>}
-                    <span className="text-[10px] text-zinc-600">
-                      {new Date(comment.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                    </span>
-                    {isInternalNote && (
-                      <span className="text-[9px] font-bold uppercase tracking-wide text-amber-500 border border-amber-900/50 bg-amber-950/30 px-1.5 rounded">
-                        Internal
-                      </span>
-                    )}
+                    <span className="text-[10px] text-zinc-600">{new Date(comment.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    {isInternalNote && <span className="text-[9px] font-bold uppercase tracking-wide text-amber-500 border border-amber-900/50 bg-amber-950/30 px-1.5 rounded">Internal</span>}
                   </div>
-
-                  <div className={`px-4 py-2.5 shadow-sm text-sm whitespace-pre-wrap break-words border
-                    ${isInternalNote
-                      ? 'bg-amber-950/10 border-amber-900/40 text-amber-100 rounded-2xl' 
-                      : isMe 
-                        ? 'bg-zinc-900 border-zinc-800 text-zinc-300 rounded-2xl rounded-tr-none' 
-                        : 'bg-zinc-700 border-zinc-600 text-white rounded-2xl rounded-tl-none'     
-                    }`}
-                  >
+                  <div className={`px-4 py-2.5 shadow-sm text-sm whitespace-pre-wrap break-words border ${isInternalNote ? 'bg-amber-950/10 border-amber-900/40 text-amber-100 rounded-2xl' : isMe ? 'bg-zinc-900 border-zinc-800 text-zinc-300 rounded-2xl rounded-tr-none' : 'bg-zinc-700 border-zinc-600 text-white rounded-2xl rounded-tl-none'}`}>
                     {comment.message}
                   </div>
                 </div>
@@ -305,23 +322,13 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                 <svg className="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
               </button>
              </div>
-             
              <div className="flex justify-between items-center mt-2">
-                <div className="text-[10px] text-zinc-600">
-                  Press <span className="font-mono text-zinc-500">Enter</span> to send
-                </div>
+                <div className="text-[10px] text-zinc-600">Press <span className="font-mono text-zinc-500">Enter</span> to send</div>
                 {isStaff && (
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <div className={`w-3 h-3 rounded-full border ${isInternal ? 'bg-amber-500 border-amber-500' : 'border-zinc-600'}`}></div>
-                    <span className={`text-xs font-medium transition-colors ${isInternal ? 'text-amber-400' : 'text-zinc-500'}`}>
-                      Internal Note
-                    </span>
-                    <input 
-                      type="checkbox" 
-                      className="hidden"
-                      checked={isInternal} 
-                      onChange={(e) => setIsInternal(e.target.checked)}
-                    />
+                    <span className={`text-xs font-medium transition-colors ${isInternal ? 'text-amber-400' : 'text-zinc-500'}`}>Internal Note</span>
+                    <input type="checkbox" className="hidden" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)}/>
                   </label>
                 )}
              </div>
@@ -363,17 +370,14 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               )}
             </div>
 
-            {/* 👇 UPDATED PRIORITY SECTION with ICONS */}
+            {/* Priority */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Priority</label>
               {isStaff ? (
-                // For Staff: Show the visual display AND the dropdown
                 <div className="space-y-2">
-                   {/* Show the preview of what they are selecting */}
                    <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg px-3 py-2">
                       <PriorityDisplay priority={draftPriority} />
                    </div>
-                   
                    <select 
                     value={draftPriority}
                     onChange={(e) => setDraftPriority(e.target.value as any)}
@@ -387,7 +391,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                   </select>
                 </div>
               ) : (
-                // For Users: Just show the visual badge
                 <div className="px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg">
                   <PriorityDisplay priority={ticket.priority} />
                 </div>
@@ -430,13 +433,41 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                 {isUpdating ? 'Saving...' : 'Update Ticket'}
               </button>
             )}
-
           </div>
         </div>
 
+        {/* Linked Requests Sidebar Section */}
+        {linkedTickets.length > 0 && (
+          <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
+             <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Linked Requests</h3>
+                <span className="text-[10px] font-bold text-white bg-zinc-800 px-1.5 py-0.5 rounded-full">{linkedTickets.length}</span>
+             </div>
+
+             <div className="space-y-3">
+               {linkedTickets.map(child => (
+                 <div key={child.id} className="group bg-zinc-900/40 border border-zinc-800 rounded-lg p-3 hover:bg-zinc-900 transition-colors">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-xs font-bold text-white font-mono">#{child.id}</span>
+                      <button 
+                        onClick={() => promptUnlink(child.id)}
+                        disabled={isUnlinking}
+                        className="text-zinc-600 hover:text-red-400 transition-colors p-1 hover:bg-red-500/10 rounded"
+                        title="Unlink and revert to NEW"
+                      >
+                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                      </button>
+                    </div>
+                    <div className="text-xs text-zinc-300 truncate mb-1">{child.title}</div>
+                    <div className="text-[10px] text-zinc-500 truncate">{child.created_by_user?.email}</div>
+                 </div>
+               ))}
+             </div>
+          </div>
+        )}
+
         <div className="bg-zinc-900/20 border border-zinc-800/60 rounded-xl p-5 space-y-4">
            <h3 className="text-xs font-bold text-zinc-600 uppercase tracking-wider">Info</h3>
-           
            <div>
               <span className="block text-[10px] uppercase text-zinc-500 mb-1">Requester Email</span>
               <div className="text-sm text-zinc-300 break-all select-all flex items-center gap-2">
@@ -444,14 +475,54 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                 {ticket.created_by_user?.email}
               </div>
            </div>
-           
            <div>
               <span className="block text-[10px] uppercase text-zinc-500 mb-1">Ticket ID</span>
               <div className="text-sm font-mono text-zinc-400 select-all">#{ticket.id}</div>
            </div>
         </div>
-
       </div>
+
+      {/* ✨ Custom Unlink Confirmation Modal */}
+      {unlinkModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            
+            <div className="p-6 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 mb-4">
+                <svg className="h-6 w-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">Unlink Ticket?</h3>
+              <p className="text-sm text-zinc-400">
+                Are you sure you want to remove this ticket from the group? 
+                It will revert to <span className="text-blue-400 font-bold">NEW</span> status.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-px bg-zinc-800 border-t border-zinc-800">
+              <button 
+                onClick={() => setUnlinkModalOpen(false)}
+                className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-sm font-medium py-3.5 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={executeUnlink}
+                disabled={isUnlinking}
+                className="bg-zinc-900 hover:bg-red-900/20 text-red-400 hover:text-red-300 text-sm font-bold py-3.5 transition-colors flex items-center justify-center gap-2"
+              >
+                {isUnlinking ? (
+                  <span className="animate-spin h-4 w-4 border-2 border-red-500/30 border-t-red-500 rounded-full"></span>
+                ) : (
+                  'Unlink'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
