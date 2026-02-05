@@ -1,3 +1,5 @@
+// src/components/TicketDetailView.tsx
+
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -31,12 +33,12 @@ type Ticket = {
   status: TicketStatus;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   category: string;
+  deadline: string | null;
   created_at: string;
   assigned_to: string | null;
   created_by_user: { full_name: string; email: string };
 };
 
-// Type for child tickets
 type LinkedTicket = {
   id: string;
   title: string;
@@ -111,7 +113,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   const [isSending, setIsSending] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   
-  // ✨ NEW: Modal States
+  // Modal States
   const [unlinkModalOpen, setUnlinkModalOpen] = useState(false);
   const [ticketToUnlink, setTicketToUnlink] = useState<string | null>(null);
   const [isUnlinking, setIsUnlinking] = useState(false);
@@ -120,16 +122,19 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   const [draftStatus, setDraftStatus] = useState<TicketStatus>(ticket.status);
   const [draftPriority, setDraftPriority] = useState(ticket.priority);
   const [draftAssignee, setDraftAssignee] = useState(ticket.assigned_to || '');
+  const [draftDeadline, setDraftDeadline] = useState(ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '');
 
   const hasChanges = 
     draftStatus !== ticket.status || 
     draftPriority !== ticket.priority || 
-    draftAssignee !== (ticket.assigned_to || '');
+    draftAssignee !== (ticket.assigned_to || '') ||
+    draftDeadline !== (ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '');
 
   useEffect(() => {
     setDraftStatus(ticket.status);
     setDraftPriority(ticket.priority);
     setDraftAssignee(ticket.assigned_to || '');
+    setDraftDeadline(ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '');
   }, [ticket]);
 
   const isStaff = currentUser.role === 'ADMIN' || currentUser.role === 'ASSIGNEE';
@@ -174,6 +179,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
         status: draftStatus,
         priority: draftPriority,
         assigned_to: draftAssignee || null,
+        deadline: draftDeadline ? new Date(draftDeadline).toISOString() : null,
       };
 
       const res = await fetch(`/api/tickets/${ticket.id}`, {
@@ -195,13 +201,11 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
     }
   };
 
-  // ✨ Step 1: Trigger the custom modal
   const promptUnlink = (childId: string) => {
     setTicketToUnlink(childId);
     setUnlinkModalOpen(true);
   };
 
-  // ✨ Step 2: Execute the Unlink Action
   const executeUnlink = async () => {
     if (!ticketToUnlink) return;
     
@@ -216,7 +220,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
       if (!res.ok) throw new Error('Unlink failed');
 
       router.refresh();
-      setUnlinkModalOpen(false); // Close on success
+      setUnlinkModalOpen(false); 
       setTicketToUnlink(null);
     } catch (error) {
       alert('Failed to unlink ticket');
@@ -228,9 +232,8 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-140px)] relative">
       
-      {/* LEFT COLUMN: Chat Interface */}
+      {/* LEFT COLUMN */}
       <div className="lg:col-span-2 flex flex-col bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden shadow-sm">
-        
         {/* Header */}
         <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm z-10">
           <h2 className="text-lg font-semibold text-white truncate">{ticket.title}</h2>
@@ -243,7 +246,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-black/20">
-          {/* Description */}
           <div className="flex gap-3">
              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-xs font-bold border border-indigo-500/30">
                 {ticket.created_by_user?.full_name?.charAt(0) || 'U'}
@@ -259,7 +261,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
              </div>
           </div>
 
-          {/* Separator */}
           {comments.length > 0 && (
              <div className="relative flex items-center py-2">
                <div className="flex-grow border-t border-zinc-800"></div>
@@ -268,7 +269,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
              </div>
           )}
 
-          {/* Comments */}
           {comments.map((comment) => {
             if (comment.is_internal && !isStaff) return null;
             const isMe = comment.user_id === currentUser.id;
@@ -419,6 +419,24 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               )}
             </div>
 
+             {/* ✨ MOVED: Deadline Picker (Now inside Controls) */}
+             <div className="space-y-1.5">
+               <label className="text-xs font-medium text-zinc-400">Target Deadline</label>
+               {isStaff ? (
+                 <input
+                   type="date"
+                   value={draftDeadline}
+                   onChange={(e) => setDraftDeadline(e.target.value)}
+                   disabled={isUpdating}
+                   className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all [color-scheme:dark]"
+                 />
+               ) : (
+                 <div className="px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-sm text-zinc-300">
+                    {ticket.deadline ? new Date(ticket.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-') : 'No Deadline'}
+                 </div>
+               )}
+            </div>
+
             {isStaff && hasChanges && (
               <button
                 onClick={handleSaveChanges}
@@ -438,7 +456,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
 
         {/* Linked Requests Sidebar Section */}
         {linkedTickets.length > 0 && (
-          <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-sm space-y-4 animate-in fade-in duration-300">
              <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Linked Requests</h3>
                 <span className="text-[10px] font-bold text-white bg-zinc-800 px-1.5 py-0.5 rounded-full">{linkedTickets.length}</span>
@@ -466,8 +484,10 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
           </div>
         )}
 
+        {/* INFO BOX (Ticket ID removed) */}
         <div className="bg-zinc-900/20 border border-zinc-800/60 rounded-xl p-5 space-y-4">
            <h3 className="text-xs font-bold text-zinc-600 uppercase tracking-wider">Info</h3>
+           
            <div>
               <span className="block text-[10px] uppercase text-zinc-500 mb-1">Requester Email</span>
               <div className="text-sm text-zinc-300 break-all select-all flex items-center gap-2">
@@ -475,18 +495,14 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                 {ticket.created_by_user?.email}
               </div>
            </div>
-           <div>
-              <span className="block text-[10px] uppercase text-zinc-500 mb-1">Ticket ID</span>
-              <div className="text-sm font-mono text-zinc-400 select-all">#{ticket.id}</div>
-           </div>
+           {/* Deadline removed from here */}
         </div>
       </div>
 
-      {/* ✨ Custom Unlink Confirmation Modal */}
+      {/* Unlink Confirmation Modal */}
       {unlinkModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            
             <div className="p-6 text-center">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 mb-4">
                 <svg className="h-6 w-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -499,7 +515,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                 It will revert to <span className="text-blue-400 font-bold">NEW</span> status.
               </p>
             </div>
-
             <div className="grid grid-cols-2 gap-px bg-zinc-800 border-t border-zinc-800">
               <button 
                 onClick={() => setUnlinkModalOpen(false)}
