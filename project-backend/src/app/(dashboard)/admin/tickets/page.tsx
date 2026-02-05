@@ -3,15 +3,14 @@
 import { supabaseAdmin } from '@/lib/supabase';
 import AdminTicketTable from '@/components/AdminTicketTable'; 
 import TicketToolbar from '@/components/TicketToolbar';
+import PaginationControls from '@/components/PaginationControls';
 
-// 1. Fetch Global Stats
+const PAGE_SIZE = 5; // Set limit per page
+
+// 1. Global Stats (Unaffected by pagination/filters)
 async function getGlobalStats() {
-  const { data, error } = await supabaseAdmin
-    .from('tickets')
-    .select('status');
-
+  const { data, error } = await supabaseAdmin.from('tickets').select('status');
   if (error || !data) return { total: 0, pending: 0, inProgress: 0, solved: 0 };
-
   return {
     total: data.length,
     pending: data.filter((t) => t.status === 'NEW').length,
@@ -20,11 +19,16 @@ async function getGlobalStats() {
   };
 }
 
-// 2. Fetch Filtered Tickets
+// 2. Fetch Filtered & Paginated Tickets
 async function getTickets(searchParams: { [key: string]: string | undefined }) {
   const query = searchParams?.q || '';
   const status = searchParams?.status;
   const priority = searchParams?.priority;
+  const page = Number(searchParams?.page) || 1;
+
+  // Pagination Math
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
 
   let supabaseQuery = supabaseAdmin
     .from('tickets')
@@ -32,9 +36,10 @@ async function getTickets(searchParams: { [key: string]: string | undefined }) {
       id, title, description, status, priority, deadline, created_at,
       assigned_to_user:users!tickets_assigned_to_fkey (full_name),
       created_by_user:users!tickets_created_by_fkey (full_name, email)
-    `)
+    `, { count: 'exact' }) // 👈 Request exact count for pagination
     .neq('status', status === 'MERGED' ? 'IGNORE_THIS_FILTER' : 'MERGED')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(from, to); // 👈 Apply Pagination Limit
 
   if (status) supabaseQuery = supabaseQuery.eq('status', status);
   if (priority) supabaseQuery = supabaseQuery.eq('priority', priority);
@@ -47,8 +52,17 @@ async function getTickets(searchParams: { [key: string]: string | undefined }) {
     }
   }
 
-  const { data, error } = await supabaseQuery;
-  return error ? [] : (data as any[]) || [];
+  const { data, error, count } = await supabaseQuery;
+
+  if (error) {
+    console.error("❌ Admin Query Error:", error.message);
+    return { tickets: [], count: 0 };
+  }
+  
+  return { 
+    tickets: (data as any[]) || [], 
+    count: count || 0 
+  };
 }
 
 export default async function AdminTicketsPage(props: {
@@ -56,7 +70,8 @@ export default async function AdminTicketsPage(props: {
 }) {
   const params = await props.searchParams;
   
-  const [tickets, stats] = await Promise.all([
+  // Parallel Fetching
+  const [{ tickets, count }, stats] = await Promise.all([
     getTickets(params),
     getGlobalStats()
   ]);
@@ -77,9 +92,14 @@ export default async function AdminTicketsPage(props: {
         <StatCard label="Solved" value={stats.solved} color="emerald" />
       </div>
 
-      <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
-        <TicketToolbar />
-        <AdminTicketTable initialTickets={tickets} />
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden">
+        <div className="p-4">
+            <TicketToolbar />
+            <AdminTicketTable initialTickets={tickets} />
+        </div>
+        
+        {/* 👇 Add Pagination Bar at bottom */}
+        <PaginationControls totalCount={count} pageSize={PAGE_SIZE} />
       </div>
     </div>
   );

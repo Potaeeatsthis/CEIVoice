@@ -17,11 +17,16 @@ export default function TicketToolbar() {
     } else {
       params.delete(key);
     }
+    
+    // ✨ RESET TO PAGE 1 ON FILTER CHANGE
+    params.set('page', '1'); 
+    
     replace(`${pathname}?${params.toString()}`);
   }, [searchParams, pathname, replace]);
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 mb-6 animate-in fade-in slide-in-from-top-2 duration-500">
+     // ... (The rest of the UI remains exactly the same as before)
+     <div className="flex flex-col md:flex-row gap-4 mb-6 animate-in fade-in slide-in-from-top-2 duration-500">
       
       {/* Search Input */}
       <div className="relative flex-1">
