@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { cookies } from 'next/headers';
+import { sendTicketNotification } from '@/lib/email'; // 👈 Import the helper
 
 // 1. GET: Fetch a single ticket
 export async function GET(
@@ -87,16 +88,44 @@ export async function PATCH(
     }
 
     // Perform the update
-    const { data, error } = await supabaseAdmin
+    // ✨ CRITICAL: We fetch 'email' for creator and assignee so we can send notifications
+    const { data: ticket, error } = await supabaseAdmin
       .from('tickets')
       .update(updates)
       .eq('id', id)
-      .select()
+      .select(`
+        *,
+        created_by_user:users!tickets_created_by_fkey(email, full_name),
+        assigned_to_user:users!tickets_assigned_to_fkey(email, full_name)
+      `)
       .single();
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, ticket: data });
+    // ✨ EMAIL NOTIFICATION LOGIC (Fire & Forget)
+    const triggerEmails = async () => {
+        // 1. SOLVED
+        if (status === 'SOLVED') {
+            await sendTicketNotification('SOLVED', ticket);
+        }
+        // 2. MERGED
+        if (status === 'MERGED') {
+            await sendTicketNotification('MERGED', ticket);
+        }
+        // 3. DEADLINE UPDATED (Check if present in body and is valid)
+        if (deadline && deadline !== '') {
+             // We notify if a deadline was sent (assuming UI only sends if changed)
+             await sendTicketNotification('DEADLINE', ticket);
+        }
+        // 4. ASSIGNEE UPDATED (Notify both parties)
+        if (assigned_to && ticket.assigned_to_user) {
+             await sendTicketNotification('ASSIGNED', ticket);
+        }
+    };
+
+    triggerEmails(); // Run in background to keep UI fast
+
+    return NextResponse.json({ success: true, ticket });
 
   } catch (error: any) {
     console.error("PATCH Error:", error);
