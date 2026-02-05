@@ -4,13 +4,14 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { cookies } from 'next/headers';
 
-// GET remains the same...
+// 1. GET: Fetch a single ticket
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await params; 
+    
     const cookieStore = await cookies();
     const userId = cookieStore.get('user_id')?.value;
 
@@ -36,7 +37,7 @@ export async function GET(
   }
 }
 
-// 👇 THIS IS THE FIXED FUNCTION
+// 2. PATCH: Update Ticket Details
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -54,7 +55,7 @@ export async function PATCH(
 
     const body = await request.json();
     
-    // ✅ FIX: We now extract ALL fields, including deadline
+    // Extract all editable fields
     const { 
       title, 
       description, 
@@ -65,26 +66,27 @@ export async function PATCH(
       assigned_to 
     } = body;
 
-    // Construct update object dynamically
+    // Start with the updated_at timestamp
     const updates: any = { updated_at: new Date().toISOString() };
     
-    // Update fields if they exist in the request
+    // Conditionally add fields to the update object if they exist in the request
     if (title !== undefined) updates.title = title;
     if (description !== undefined) updates.description = description;
     if (status) updates.status = status;
     if (priority) updates.priority = priority;
     if (category) updates.category = category;
     
-    // ✅ Fix for Deadline
+    // Handle Deadline (Allow null to clear it)
     if (deadline !== undefined) updates.deadline = deadline;
     
-    // Handle "Unassigned"
+    // Handle Assignee (Allow null to unassign)
     if (assigned_to === '') {
         updates.assigned_to = null;
     } else if (assigned_to) {
         updates.assigned_to = assigned_to;
     }
 
+    // Perform the update
     const { data, error } = await supabaseAdmin
       .from('tickets')
       .update(updates)
