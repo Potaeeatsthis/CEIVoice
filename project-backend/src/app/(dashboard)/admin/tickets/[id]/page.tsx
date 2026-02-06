@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
 import TicketDetailView from '@/components/TicketDetailView';
-import MergeTicketModal from '@/components/MergeTicketModal';
 
 // Helper to fetch data safely
 async function getData(ticketId: string) {
@@ -13,12 +12,12 @@ async function getData(ticketId: string) {
   const userId = cookieStore.get('user_id')?.value;
   const userRole = cookieStore.get('user_role')?.value || 'USER';
 
-  // 0. Security Check: Ensure only Staff can view this page
+  // 0. Security Check
   if (userRole !== 'ADMIN' && userRole !== 'ASSIGNEE') {
     return { authorized: false };
   }
 
-  // 1. Fetch the Ticket
+  // 1. Fetch the Main Ticket
   const { data: ticket, error } = await supabaseAdmin
     .from('tickets')
     .select(`
@@ -38,33 +37,37 @@ async function getData(ticketId: string) {
     .eq('ticket_id', ticketId)
     .order('created_at', { ascending: true });
 
-  // 3. Fetch All Staff (For Assignee Dropdown)
-  // Since this is the Admin View, we need the list of staff to assign tickets to
+  // 3. Fetch Staff (For dropdowns)
   const { data: staffUsers } = await supabaseAdmin
     .from('users')
     .select('id, full_name, role')
-    .neq('role', 'USER'); 
+    .neq('role', 'USER');
+
+  // ✨ 4. NEW: Fetch Linked Tickets (Children)
+  // This looks for any tickets that have THIS ticket as their parent
+  const { data: linkedTickets } = await supabaseAdmin
+    .from('tickets')
+    .select('id, title, status, created_by_user:users!tickets_created_by_fkey(email)')
+    .eq('parent_ticket_id', ticketId);
   
   return { 
     authorized: true,
     ticket, 
     comments: comments || [], 
     currentUser: { id: userId, role: userRole },
-    allUsers: staffUsers || [] 
+    allUsers: staffUsers || [],
+    linkedTickets: linkedTickets || [] // 👈 Pass this to the return object
   };
 }
 
-export default async function AdminTicketPage({ params }: { params: { id: string } }) {
-  // Await params for Next.js 15+ compatibility
+export default async function AdminTicketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const data = await getData(id);
 
-  // Handle Security Redirect
   if (data && data.authorized === false) {
     redirect('/user/tickets');
   }
 
-  // Handle 404
   if (!data || !data.ticket) {
     return (
       <div className="p-12 text-center border border-zinc-800 rounded-lg bg-zinc-950/40">
@@ -82,7 +85,6 @@ export default async function AdminTicketPage({ params }: { params: { id: string
       {/* Header Area */}
       <div className="flex items-center justify-between pb-6 border-b border-zinc-800">
         <div className="flex items-center gap-4">
-          {/* Back Button */}
           <Link 
             href="/admin/tickets" 
             className="h-8 w-8 flex items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-all"
@@ -90,14 +92,12 @@ export default async function AdminTicketPage({ params }: { params: { id: string
             &larr;
           </Link>
           
-          {/* Title & ID */}
           <div>
             <div className="flex items-center gap-3">
               <span className="text-zinc-500 font-mono text-lg">#{data.ticket.id}</span>
               <h1 className="text-2xl font-bold text-white tracking-tight">
                 {data.ticket.title || "Untitled Request"}
               </h1>
-              {/* Status Badge (Static display for header) */}
               <span className={`px-2 py-0.5 rounded text-xs font-medium border
                 ${data.ticket.status === 'NEW' ? 'bg-blue-950/30 text-blue-400 border-blue-900' : 
                   data.ticket.status === 'SOLVED' ? 'bg-emerald-950/30 text-emerald-400 border-emerald-900' :
@@ -108,11 +108,6 @@ export default async function AdminTicketPage({ params }: { params: { id: string
             </div>
           </div>
         </div>
-        
-        {/* Action Buttons: Merge */}
-        <div className="flex items-center gap-2">
-           <MergeTicketModal parentTicketId={data.ticket.id} />
-        </div>
       </div>
 
       {/* Main Interactive View */}
@@ -121,6 +116,7 @@ export default async function AdminTicketPage({ params }: { params: { id: string
         comments={data.comments}
         currentUser={data.currentUser}
         allUsers={data.allUsers}
+        linkedTickets={data.linkedTickets} // 👈 Pass the data here
       />
     </div>
   );

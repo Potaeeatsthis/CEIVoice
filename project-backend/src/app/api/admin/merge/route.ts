@@ -52,8 +52,7 @@ export async function POST(request: Request) {
       .from('tickets')
       .update({
         status: 'MERGED',
-        // If you have this column, uncomment it to link them in DB:
-        // parent_ticket_id: parentTicket.id  
+        parent_ticket_id: parentTicket.id  
       })
       .in('id', ticketIds);
 
