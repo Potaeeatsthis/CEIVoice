@@ -1,56 +1,134 @@
 // src/app/api/tickets/[id]/route.ts
-import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
 
+import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase';
+import { cookies } from 'next/headers';
+import { sendTicketNotification } from '@/lib/email'; // 👈 Import the helper
+
+// 1. GET: Fetch a single ticket
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params; 
+    
+    const cookieStore = await cookies();
+    const userId = cookieStore.get('user_id')?.value;
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('tickets')
+      .select(`
+        *,
+        assigned_to_user:users!tickets_assigned_to_fkey (id, full_name),
+        created_by_user:users!tickets_created_by_fkey (id, full_name, email)
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// 2. PATCH: Update Ticket Details
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  
-  // Security: Check Role
-  const userRole = request.headers.get('x-user-role');
-  const userId = request.headers.get('x-user-id');
-
-  // Users cannot update tickets directly
-  if (userRole === 'USER') {
-    return NextResponse.json({ error: 'Forbidden: Users cannot edit tickets directly.' }, { status: 403 });
-  }
-
-  let body;
   try {
-    body = await request.json();
-  } catch (e) {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    const { id } = await params;
+    
+    // Auth Check
+    const cookieStore = await cookies();
+    const userRole = cookieStore.get('user_role')?.value;
+
+    if (userRole !== 'ADMIN' && userRole !== 'ASSIGNEE') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    
+    // Extract all editable fields
+    const { 
+      title, 
+      description, 
+      status, 
+      priority, 
+      category, 
+      deadline, 
+      assigned_to 
+    } = body;
+
+    // Start with the updated_at timestamp
+    const updates: any = { updated_at: new Date().toISOString() };
+    
+    // Conditionally add fields to the update object if they exist in the request
+    if (title !== undefined) updates.title = title;
+    if (description !== undefined) updates.description = description;
+    if (status) updates.status = status;
+    if (priority) updates.priority = priority;
+    if (category) updates.category = category;
+    
+    // Handle Deadline (Allow null to clear it)
+    if (deadline !== undefined) updates.deadline = deadline;
+    
+    // Handle Assignee (Allow null to unassign)
+    if (assigned_to === '') {
+        updates.assigned_to = null;
+    } else if (assigned_to) {
+        updates.assigned_to = assigned_to;
+    }
+
+    // Perform the update
+    // ✨ CRITICAL: We fetch 'email' for creator and assignee so we can send notifications
+    const { data: ticket, error } = await supabaseAdmin
+      .from('tickets')
+      .update(updates)
+      .eq('id', id)
+      .select(`
+        *,
+        created_by_user:users!tickets_created_by_fkey(email, full_name),
+        assigned_to_user:users!tickets_assigned_to_fkey(email, full_name)
+      `)
+      .single();
+
+    if (error) throw error;
+
+    // ✨ EMAIL NOTIFICATION LOGIC (Fire & Forget)
+    const triggerEmails = async () => {
+        // 1. SOLVED
+        if (status === 'SOLVED') {
+            await sendTicketNotification('SOLVED', ticket);
+        }
+        // 2. MERGED
+        if (status === 'MERGED') {
+            await sendTicketNotification('MERGED', ticket);
+        }
+        // 3. DEADLINE UPDATED (Check if present in body and is valid)
+        if (deadline && deadline !== '') {
+             // We notify if a deadline was sent (assuming UI only sends if changed)
+             await sendTicketNotification('DEADLINE', ticket);
+        }
+        // 4. ASSIGNEE UPDATED (Notify both parties)
+        if (assigned_to && ticket.assigned_to_user) {
+             await sendTicketNotification('ASSIGNED', ticket);
+        }
+    };
+
+    triggerEmails(); // Run in background to keep UI fast
+
+    return NextResponse.json({ success: true, ticket });
+
+  } catch (error: any) {
+    console.error("PATCH Error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  // Prevent updating 'id' or 'created_at'
-  const { id: _, created_at, ...updates } = body; 
-
-  const { data, error } = await supabase
-    .from('tickets')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  // LOGGING: If status or assignee changed, log it
-  if (updates.status) {
-    await supabase.from('audit_logs').insert({
-      ticket_id: parseInt(id),
-      action: `Status updated to ${updates.status}`,
-      changed_by: userId,
-    });
-  }
-  if (updates.assigned_to) {
-    await supabase.from('audit_logs').insert({
-      ticket_id: parseInt(id),
-      action: `Ticket assigned to user ID ${updates.assigned_to}`,
-      changed_by: userId,
-    });
-  }
-
-  return NextResponse.json({ data });
 }
