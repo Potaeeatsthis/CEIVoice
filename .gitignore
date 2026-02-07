@@ -6,3 +6,4 @@ test_rabbit.py
 
 web-app/
 node_modules/
+__pycache__/
