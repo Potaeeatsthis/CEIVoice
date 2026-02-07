@@ -34,10 +34,10 @@ CANDIDATE_LABELS = ["General", "Network", "Hardware", "Software", "Access"]
 
 # Map Categories to specific Staff User UUIDs
 SPECIALIST_MAP = {
-    "Network": "ee2e5df3-cf47-4a91-b170-f50a65b3769e",  # Top
-    "Hardware": "ee2e5df3-cf47-4a91-b170-f50a65b3769e", # Top
-    "Software": "9e72b79f-c541-4d83-9477-04d932bf64c3", # In
-    "Access": "5771ae1a-6506-43cc-bbf5-892c5acf6faa",   # ChingChing
+    "Network": "62f547df-8f4a-4291-88bb-f2ca8a225e00",  # Top
+    "Hardware": "62f547df-8f4a-4291-88bb-f2ca8a225e00", # Top
+    "Software": "e779a93a-fadf-4df4-b629-b84b5aec7b02", # In
+    "Access": "d9f368f0-0bd9-49eb-ac7e-a61246f824eb",   # ChingChing
 }
 
 print("Loading AI Models... (This happens only once)")
