@@ -24,7 +24,7 @@ type Comment = {
   };
 };
 
-type TicketStatus = 'DRAFT' | 'NEW' | 'IN_PROGRESS' | 'SOLVED' | 'FAILED' | 'MERGED';
+type TicketStatus = 'NEW' | 'IN_PROGRESS' | 'SOLVED' | 'FAILED';
 
 type Ticket = {
   id: string;
@@ -137,7 +137,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
     setDraftDeadline(ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '');
   }, [ticket]);
 
-  const isAdmin = currentUser.role === 'ADMIN';
+  const isAssignee = currentUser.role === 'ASSIGNEE';
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -156,7 +156,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
         credentials: 'include',
         body: JSON.stringify({
           content: commentText,
-          is_internal: isAdmin ? isInternal : false,
+          is_internal: isAssignee ? isInternal : false,
         }),
       });
 
@@ -270,7 +270,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
           )}
 
           {comments.map((comment) => {
-            if (comment.is_internal && !isAdmin) return null;
+            if (comment.is_internal && !isAssignee) return null;
             const isMe = comment.user_id === currentUser.id;
             const isInternalNote = comment.is_internal;
 
@@ -324,7 +324,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
              </div>
              <div className="flex justify-between items-center mt-2">
                 <div className="text-[10px] text-zinc-600">Press <span className="font-mono text-zinc-500">Enter</span> to send</div>
-                {isAdmin && (
+                {isAssignee && (
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <div className={`w-3 h-3 rounded-full border ${isInternal ? 'bg-amber-500 border-amber-500' : 'border-zinc-600'}`}></div>
                     <span className={`text-xs font-medium transition-colors ${isInternal ? 'text-amber-400' : 'text-zinc-500'}`}>Internal Note</span>
@@ -350,7 +350,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             {/* Status */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Status</label>
-              {isAdmin ? (
+              {isAssignee ? (
                   <select 
                     value={draftStatus}
                     onChange={(e) => setDraftStatus(e.target.value as TicketStatus)}
@@ -373,7 +373,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             {/* Priority */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Priority</label>
-              {isAdmin ? (
+              {isAssignee ? (
                 <div className="space-y-2">
                    <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg px-3 py-2">
                       <PriorityDisplay priority={draftPriority} />
@@ -400,7 +400,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             {/* Assignee */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Assignee</label>
-              {isAdmin ? (
+              {isAssignee ? (
                   <select 
                     value={draftAssignee}
                     onChange={(e) => setDraftAssignee(e.target.value)}
@@ -422,7 +422,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
              {/* ✨ MOVED: Deadline Picker (Now inside Controls) */}
              <div className="space-y-1.5">
                <label className="text-xs font-medium text-zinc-400">Target Deadline</label>
-               {isAdmin ? (
+               {isAssignee ? (
                  <input
                    type="date"
                    value={draftDeadline}
@@ -437,7 +437,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                )}
             </div>
 
-            {isAdmin && hasChanges && (
+            {isAssignee && hasChanges && (
               <button
                 onClick={handleSaveChanges}
                 disabled={isUpdating}

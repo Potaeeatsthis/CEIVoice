@@ -1,116 +1,124 @@
-import Link from 'next/link';
 import { cookies } from 'next/headers';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
-import PriorityIcon from '@/components/PriorityIcon';
+import AssigneeTicketView from '@/components/AssigneeTicketView';
 
-async function getData(ticketId: number) {
+async function getData(ticketId: string) {
   const cookieStore = await cookies();
 
   const userId = cookieStore.get('user_id')?.value;
   const userRole = cookieStore.get('user_role')?.value;
 
-  if (!userId) return { authorized: false };
-
-  /* ---------------- Role-based ticket query ---------------- */
-
-  let query = supabaseAdmin
-  .from('tickets')
-  .select('*')
-  .eq('id', ticketId);
-
-
-  // USER → only own tickets
-  if (userRole === 'USER') {
-    query = query.eq('created_by', userId);
+  // 🔒 Only ASSIGNEE allowed
+  if (!userId || userRole !== 'ASSIGNEE') {
+    return { authorized: false };
   }
 
-  // ASSIGNEE → only assigned tickets
-  if (userRole === 'ASSIGNEE') {
-    query = query.eq('assigned_to', userId); // ⚠️ ensure column name matches DB
-  }
+  // 🔒 Only THEIR ticket
+  const { data: ticket, error } = await supabaseAdmin
+    .from('tickets')
+    .select(`
+      *,
+      assigned_to_user:users!tickets_assigned_to_fkey (full_name),
+      created_by_user:users!tickets_created_by_fkey (full_name, email)
+    `)
+    .eq('id', ticketId)
+    .eq('assigned_to', userId)
+    .single();
 
-  // ADMIN → no extra filter
+  if (error || !ticket) return null;
 
-  const { data: ticket } = await query.maybeSingle();
-
-  if (!ticket) return { authorized: false };
-
-  /* ---------------- Comments ---------------- */
-
+  // 💬 comments
   const { data: comments } = await supabaseAdmin
     .from('comments')
     .select('*, user:users(full_name)')
     .eq('ticket_id', ticketId)
     .order('created_at', { ascending: true });
 
+  const safeComments = comments || [];
+
+  // ✅ HAS ASSIGNEE COMMENT? (required before SOLVED / FAILED)
+  const hasFinalComment = safeComments.some(
+    comment => comment.user_id === userId
+  );
+
+  // ✅ staff list for reassignment
+  const { data: staffUsers } = await supabaseAdmin
+    .from('users')
+    .select('id, full_name, role')
+    .eq('role', 'ASSIGNEE');
+
   return {
     authorized: true,
     ticket,
-    comments: comments || [],
-    isReadOnly: userRole === 'ASSIGNEE',
+    comments: safeComments,
+    hasFinalComment,
+    currentUser: { id: userId, role: userRole },
+    allUsers: staffUsers || []
   };
 }
 
-export default async function UserTicketDetailPage({
-  params,
+export default async function AssigneeTicketPage({
+  params
 }: {
   params: { id: string };
 }) {
-  const data = await getData(Number(params.id));
+  const { id } = await params;
 
-  if (!data?.authorized) {
-    redirect('/tickets');
+  const data = await getData(id);
+
+  // 🔒 security redirect
+  if (data && data.authorized === false) {
+    redirect('/assignee/tickets');
   }
 
-  const { ticket, comments, isReadOnly } = data;
+  // 404
+  if (!data || !data.ticket) {
+    return (
+      <div className="p-12 text-center border border-zinc-800 rounded-lg bg-zinc-950/40">
+        <h1 className="text-2xl font-bold text-white mb-2">
+          Ticket Not Found
+        </h1>
+        <Link
+          href="/assignee/tickets"
+          className="text-blue-400 hover:underline"
+        >
+          ← Back to My Tickets
+        </Link>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8">
-
-      {/* header */}
-      <div className="flex items-center gap-4 border-b border-zinc-800 pb-6">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4 pb-6 border-b border-zinc-800">
         <Link
-          href="/tickets"
-          className="h-8 w-8 flex items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400"
+          href="/assignee/tickets"
+          className="h-8 w-8 flex items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition"
         >
           ←
         </Link>
 
-        <h1 className="text-xl font-bold text-white">
-          Ticket #{ticket.id}
-        </h1>
-      </div>
-
-      {/* info */}
-      <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6 space-y-4">
-        <PriorityIcon priority={ticket.priority} />
-
-        <div className="text-white font-medium">
-          {ticket.title}
+        <div className="flex items-center gap-3">
+          <span className="text-zinc-500 font-mono">
+            #{data.ticket.id}
+          </span>
+          <h1 className="text-2xl font-bold text-white">
+            {data.ticket.title || 'Untitled Request'}
+          </h1>
         </div>
-
-        <p className="text-zinc-400 whitespace-pre-wrap">
-          {ticket.description}
-        </p>
-
-        {isReadOnly && (
-          <div className="text-xs text-amber-400">
-            Read-only (Assignee cannot modify this ticket)
-          </div>
-        )}
       </div>
 
-      {/* comments */}
-      <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6 space-y-3">
-        {comments.map((c: any) => (
-          <div key={c.id} className="text-sm text-zinc-300">
-            <span className="text-zinc-500">{c.user?.full_name}:</span>{' '}
-            {c.message}
-          </div>
-        ))}
-      </div>
-
+      {/* Main view */}
+      <AssigneeTicketView
+        ticket={data.ticket}
+        comments={data.comments}
+        hasFinalComment={data.hasFinalComment}
+        currentUser={data.currentUser}
+        allUsers={data.allUsers}
+      />
     </div>
   );
 }
