@@ -7,6 +7,9 @@ import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from supabase import create_client, Client
+import torch
+import numpy as np
+from transformers import BertTokenizer, BertForSequenceClassification
 import pika
 
 from transformers import pipeline
@@ -29,25 +32,38 @@ app = FastAPI()
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Categories for Zero-Shot Classification
-CANDIDATE_LABELS = ["General", "Network", "Hardware", "Software", "Access"]
-
 # Map Categories to specific Staff User UUIDs
 SPECIALIST_MAP = {
     "Network": "62f547df-8f4a-4291-88bb-f2ca8a225e00",  # Top
     "Hardware": "62f547df-8f4a-4291-88bb-f2ca8a225e00", # Top
     "Software": "e779a93a-fadf-4df4-b629-b84b5aec7b02", # In
     "Access": "d9f368f0-0bd9-49eb-ac7e-a61246f824eb",   # ChingChing
+    "General": "d9f368f0-0bd9-49eb-ac7e-a61246f824eb",  # Fallback
 }
 
 print("Loading AI Models... (This happens only once)")
 
-try:
-    # Zero-Shot Classifier (Categorization)
-    print("Loading Classifier (Zero-Shot)...")
-    classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+print("Loading Custom CEiVoice Model...")
+MODEL_PATH = "./trained_ticket_model/"
 
-    # Summarization Model (Smart Titles)
+try:
+    tokenizer = BertTokenizer.from_pretrained(MODEL_PATH)
+    model = BertForSequenceClassification.from_pretrained(MODEL_PATH)
+    model.eval()
+
+    try:
+        class_names = np.load(f"{MODEL_PATH}/classes.npy", allow_pickle=True)
+    except:
+        print("⚠️ Warning: classes.npy not found. Using default alphabetical order.")
+        class_names = ["Access", "General", "Hardware", "Network", "Software"]
+
+    print("✅ Custom BERT Model Loaded!")
+except Exception as e:
+    print(f"❌ Failed to load custom model: {e}")
+
+    class_names = []
+
+try:
     print("Loading Summarizer...")
     summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
 
@@ -89,22 +105,34 @@ def send_email(to_email: str, subject: str, html_content: str):
         print(f"❌ Email Error: {e}")
 
 def predict_category(text: str):
+    """Uses the custom BERT model to classify."""
     try:
-        result = classifier(text, candidate_labels=CANDIDATE_LABELS)
-        top_category = result['labels'][0]
-        confidence = result['scores'][0]
+        # Tokenize
+        inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=128, padding=True)
 
-        if confidence < 0.4:
-            return "General", confidence
+        # Run the Model
+        with torch.no_grad():
+            logits = model(**inputs).logits
 
-        return top_category, confidence
+        # Calculate Probabilities
+        probs = torch.nn.functional.softmax(logits, dim=1)
+
+        # Get Winner
+        confidence, predicted_id = torch.max(probs, dim=1)
+        category = class_names[predicted_id.item()]
+
+        if confidence.item() < 0.5:
+             return "General", confidence.item()
+
+        return category, confidence.item()
+
     except Exception as e:
         print(f"Classification Error: {e}")
         return "General", 0.0
 
 def generate_smart_title(description: str) -> str:
     try:
-        if len(description) < 50:
+        if len(description) < 30:
             return description
 
         summary = summarizer(description, max_length=25, min_length=5, do_sample=False)
@@ -151,8 +179,11 @@ def process_ticket(ticket_id: int, description: str):
     # Classify Category
     category, confidence = predict_category(description)
 
-    # Generate Smart Title
-    smart_title = generate_smart_title(description)
+    # Generate Smart Title (Raw)
+    raw_title = generate_smart_title(description)
+
+    # Prepend Category to Title ---
+    smart_title = f"[{category}] {raw_title}"
 
     # Recommend Solutions
     recommendations = get_similar_solutions(description)
@@ -183,27 +214,34 @@ def process_ticket(ticket_id: int, description: str):
 
     try:
         # Fetch Ticket Creator's Email
-        ticket_res = supabase.table("tickets").select("created_by").eq("id", ticket_id).single().execute()
-        created_by_uuid = ticket_res.data.get("created_by")
+        ticket_res = supabase.table("tickets").select("created_by").eq("id", ticket_id).execute()
 
-        if created_by_uuid:
-            user_res = supabase.table("users").select("email").eq("id", created_by_uuid).single().execute()
-            user_email = user_res.data.get("email")
+        if ticket_res.data and len(ticket_res.data) > 0:
+            created_by_uuid = ticket_res.data[0].get("created_by")
 
-            if user_email:
-                # Use the Beautiful User Template
-                html_body = get_user_ticket_received_html(ticket_id, smart_title, category)
-                send_email(user_email, f"[Ticket #{ticket_id}] Request Received", html_body)
+            if created_by_uuid:
+                # Try to find the user (WITHOUT .single() to prevent crashing)
+                user_res = supabase.table("users").select("email").eq("id", created_by_uuid).execute()
 
-        # Fetch Assignee's Email (The Specialist)
+                if user_res.data and len(user_res.data) > 0:
+                    user_email = user_res.data[0].get("email")
+                    if user_email:
+                        html_body = get_user_ticket_received_html(ticket_id, smart_title, category)
+                        send_email(user_email, f"[Ticket #{ticket_id}] Request Received", html_body)
+                else:
+                    print(f"⚠️ User {created_by_uuid} not found in 'users' table. Skipping email.")
+
+        # 2. Notify the Specialist (Assignee)
         if assigned_to_uuid:
-            staff_res = supabase.table("users").select("email").eq("id", assigned_to_uuid).single().execute()
-            staff_email = staff_res.data.get("email")
+            staff_res = supabase.table("users").select("email").eq("id", assigned_to_uuid).execute()
 
-            if staff_email:
-                # Use the Beautiful Staff Template
-                html_body = get_staff_assignment_html(ticket_id, smart_title, category, description)
-                send_email(staff_email, f"[Action Required] Assigned Ticket #{ticket_id}", html_body)
+            if staff_res.data and len(staff_res.data) > 0:
+                staff_email = staff_res.data[0].get("email")
+                if staff_email:
+                    html_body = get_staff_assignment_html(ticket_id, smart_title, category, description)
+                    send_email(staff_email, f"[Action Required] Assigned Ticket #{ticket_id}", html_body)
+            else:
+                print(f"⚠️ Specialist {assigned_to_uuid} not found in 'users' table. Skipping email.")
 
     except Exception as e:
         print(f"⚠️ Error sending emails: {e}")
