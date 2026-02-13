@@ -34,10 +34,10 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Map Categories to specific Staff User UUIDs
 SPECIALIST_MAP = {
-    "Network": "62f547df-8f4a-4291-88bb-f2ca8a225e00",  # Top
-    "Hardware": "62f547df-8f4a-4291-88bb-f2ca8a225e00", # Top
-    "Software": "e779a93a-fadf-4df4-b629-b84b5aec7b02", # In
-    "Access": "d9f368f0-0bd9-49eb-ac7e-a61246f824eb",   # ChingChing
+    "Network": "20fb27bd-f150-45b4-bffb-d729ada711be",  # Top
+    "Hardware": "20fb27bd-f150-45b4-bffb-d729ada711be", # Top
+    "Software": "35bb8da8-ade3-4ee5-8df1-e9154db236d2", # In
+    "Access": "b1e0b1a7-376a-4830-aa00-98b3681b8049",   # ChingChing
     "General": "d9f368f0-0bd9-49eb-ac7e-a61246f824eb",  # Fallback
 }
 
