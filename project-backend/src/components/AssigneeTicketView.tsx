@@ -37,6 +37,7 @@ type Ticket = {
   created_at: string;
   assigned_to: string | null;
   created_by_user: { full_name: string; email: string };
+  ai_resolution?: string | null;
 };
 
 type LinkedTicket = {
@@ -124,6 +125,11 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   const [draftAssignee, setDraftAssignee] = useState(ticket.assigned_to || '');
   const [draftDeadline, setDraftDeadline] = useState(ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '');
 
+    // SOLVED / FAILED Modals
+  const [showSolvedModal, setShowSolvedModal] = useState(false);
+  const [showFailedModal, setShowFailedModal] = useState(false);
+  const [resolutionText, setResolutionText] = useState('');
+
   const hasChanges = 
     draftStatus !== ticket.status || 
     draftPriority !== ticket.priority || 
@@ -137,6 +143,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
     setDraftDeadline(ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '');
   }, [ticket]);
 
+  const isLocked = ticket.status === 'SOLVED' || ticket.status === 'FAILED';
   const isAssignee = currentUser.role === 'ASSIGNEE';
 
   useEffect(() => {
@@ -361,7 +368,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                     <option value="IN_PROGRESS">In Progress</option>
                     <option value="SOLVED">Solved</option>
                     <option value="FAILED">Failed</option>
-                    <option value="MERGED">Merged</option>
                   </select>
               ) : (
                 <div className="px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-sm text-zinc-300">

@@ -1,5 +1,7 @@
 // src/components/TicketDetailView.tsx
 
+// src/components/TicketDetailView.tsx
+
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -118,22 +120,26 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   const [ticketToUnlink, setTicketToUnlink] = useState<string | null>(null);
   const [isUnlinking, setIsUnlinking] = useState(false);
 
-  // -- Draft States --
+  // -- Form States --
   const [draftStatus, setDraftStatus] = useState<TicketStatus>(ticket.status);
   const [draftPriority, setDraftPriority] = useState(ticket.priority);
   const [draftAssignee, setDraftAssignee] = useState(ticket.assigned_to || '');
   const [draftDeadline, setDraftDeadline] = useState(ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '');
+  // Category State
+  const [draftCategory, setDraftCategory] = useState(ticket.category || 'General');
 
   const hasChanges = 
     draftStatus !== ticket.status || 
     draftPriority !== ticket.priority || 
     draftAssignee !== (ticket.assigned_to || '') ||
+    draftCategory !== (ticket.category || 'General') ||
     draftDeadline !== (ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '');
 
   useEffect(() => {
     setDraftStatus(ticket.status);
     setDraftPriority(ticket.priority);
     setDraftAssignee(ticket.assigned_to || '');
+    setDraftCategory(ticket.category || 'General');
     setDraftDeadline(ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '');
   }, [ticket]);
 
@@ -178,6 +184,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
       const payload = {
         status: draftStatus,
         priority: draftPriority,
+        category: draftCategory,
         assigned_to: draftAssignee || null,
         deadline: draftDeadline ? new Date(draftDeadline).toISOString() : null,
       };
@@ -347,15 +354,24 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
           </div>
           
           <div className="space-y-5">
-            {/* Status */}
+            {/* Status (with Arrow Icon) */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Status</label>
+<<<<<<< HEAD
               {isAdmin ? (
+=======
+              {isStaff ? (
+                <div className="relative">
+>>>>>>> 7b7a3cc49e9e24cdbd695d56de7ab0c4860afdcf
                   <select 
                     value={draftStatus}
                     onChange={(e) => setDraftStatus(e.target.value as TicketStatus)}
                     disabled={isUpdating}
+<<<<<<< HEAD
                     className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all"
+=======
+                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all appearance-none pr-8 cursor-pointer"
+>>>>>>> 7b7a3cc49e9e24cdbd695d56de7ab0c4860afdcf
                   >
                     <option value="NEW">New</option>
                     <option value="IN_PROGRESS">In Progress</option>
@@ -363,6 +379,10 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                     <option value="FAILED">Failed</option>
                     <option value="MERGED">Merged</option>
                   </select>
+                  <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                </div>
               ) : (
                 <div className="px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-sm text-zinc-300">
                   {ticket.status.replace('_', ' ')}
@@ -370,19 +390,34 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               )}
             </div>
 
-            {/* Priority */}
+            {/* Priority (Merged Icon + Dropdown) */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Priority</label>
+<<<<<<< HEAD
               {isAdmin ? (
                 <div className="space-y-2">
                    <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg px-3 py-2">
                       <PriorityDisplay priority={draftPriority} />
                    </div>
                    <select 
+=======
+              {isStaff ? (
+                <div className="relative group">
+                  {/* Visual Interface */}
+                  <div className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 flex items-center justify-between transition-all">
+                     <PriorityDisplay priority={draftPriority} />
+                     <div className="text-zinc-500">
+                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                     </div>
+                  </div>
+
+                  {/* Hidden Dropdown Overlay */}
+                  <select 
+>>>>>>> 7b7a3cc49e9e24cdbd695d56de7ab0c4860afdcf
                     value={draftPriority}
                     onChange={(e) => setDraftPriority(e.target.value as any)}
                     disabled={isUpdating}
-                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                   >
                     <option value="LOW">Low (Normal)</option>
                     <option value="MEDIUM">Medium (Important)</option>
@@ -397,21 +432,58 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               )}
             </div>
 
+            {/* Category (with Arrow Icon) */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-zinc-400">Category</label>
+              {isStaff ? (
+                <div className="relative">
+                  <select 
+                    value={draftCategory}
+                    onChange={(e) => setDraftCategory(e.target.value)}
+                    disabled={isUpdating}
+                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all appearance-none pr-8 cursor-pointer"
+                  >
+                    <option value="General">General Inquiry</option>
+                    <option value="Network">Network & Connectivity</option>
+                    <option value="Hardware">Hardware Issue</option>
+                    <option value="Software">Software & Licensing</option>
+                    <option value="Access">Access Control</option>
+                  </select>
+                  <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                </div>
+              ) : (
+                <div className="px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-sm text-zinc-300">
+                  {ticket.category || 'General'}
+                </div>
+              )}
+            </div>
+
             {/* Assignee */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Assignee</label>
+<<<<<<< HEAD
               {isAdmin ? (
+=======
+              {isStaff ? (
+                <div className="relative">
+>>>>>>> 7b7a3cc49e9e24cdbd695d56de7ab0c4860afdcf
                   <select 
                     value={draftAssignee}
                     onChange={(e) => setDraftAssignee(e.target.value)}
                     disabled={isUpdating}
-                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all"
+                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all appearance-none pr-8 cursor-pointer"
                   >
                     <option value="">-- Unassigned --</option>
                     {allUsers.map(u => (
                       <option key={u.id} value={u.id}>{u.full_name}</option>
                     ))}
                   </select>
+                  <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                </div>
               ) : (
                 <div className="px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-sm text-zinc-400">
                   {allUsers.find(u => u.id === ticket.assigned_to)?.full_name || 'Unassigned'}
@@ -419,7 +491,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               )}
             </div>
 
-             {/* ✨ MOVED: Deadline Picker (Now inside Controls) */}
+             {/* Deadline Picker */}
              <div className="space-y-1.5">
                <label className="text-xs font-medium text-zinc-400">Target Deadline</label>
                {isAdmin ? (
@@ -484,7 +556,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
           </div>
         )}
 
-        {/* INFO BOX (Ticket ID removed) */}
+        {/* INFO BOX */}
         <div className="bg-zinc-900/20 border border-zinc-800/60 rounded-xl p-5 space-y-4">
            <h3 className="text-xs font-bold text-zinc-600 uppercase tracking-wider">Info</h3>
            
@@ -495,7 +567,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                 {ticket.created_by_user?.email}
               </div>
            </div>
-           {/* Deadline removed from here */}
         </div>
       </div>
 

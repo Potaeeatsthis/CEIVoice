@@ -32,6 +32,7 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
     description: ticket.description || '',
     priority: ticket.priority,
     category: ticket.category || 'General',
+    ai_solution: ticket.ai_solution || '',
     deadline: ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '', 
     assigned_to: ticket.assigned_to || '',
   });

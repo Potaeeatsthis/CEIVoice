@@ -3,7 +3,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { cookies } from 'next/headers';
-import { publishToQueue } from '@/lib/rabbitmq';
+import { sendNewMessageNotification } from '@/lib/email'; 
 
 export async function POST(
   request: Request,
@@ -29,7 +29,6 @@ export async function POST(
     }
 
     // 3. Presence Lite: Update Sender's "Last Seen"
-    // This ensures the system knows the sender is online right now.
     await supabaseAdmin
       .from('users')
       .update({ last_seen_at: new Date().toISOString() })
@@ -56,7 +55,6 @@ export async function POST(
     }
 
     // 5. Update Sender's Read Status
-    // Since they just wrote a comment, they have "read" the ticket.
     await supabaseAdmin
       .from('ticket_reads')
       .upsert({ 
@@ -65,21 +63,58 @@ export async function POST(
         last_read_at: new Date().toISOString() 
       });
 
-    // 6. RabbitMQ: Offload Notification Logic
-    // We send a generic "new_message" event. The Worker determines if emails are needed.
-    const taskPayload = {
-      type: 'new_message',
-      ticket_id: id,
-      comment_id: comment.id,
-      sender_id: userId,
-      sender_role: userRole,
-      content: content,
-      is_internal: finalIsInternal,
-      created_at: comment.created_at
-    };
+    // 6. ✨ NOTIFICATION LOGIC (Option 3: Offline + 10m Cooldown)
+    
+    // A. Fetch Ticket & Recipient Details
+    const { data: ticket } = await supabaseAdmin
+      .from('tickets')
+      .select(`
+        id, title, assigned_to, created_by, last_email_sent_at,
+        created_by_user:users!tickets_created_by_fkey(id, email, last_seen_at),
+        assigned_to_user:users!tickets_assigned_to_fkey(id, email, last_seen_at)
+      `)
+      .eq('id', id)
+      .single();
 
-    // Ensure 'notifications' queue matches your consumer/worker script
-    await publishToQueue('notifications', JSON.stringify(taskPayload));
+    if (ticket) {
+      // Determine Recipient
+      const isSenderAssignee = userId === ticket.assigned_to;
+      const recipient = isSenderAssignee ? ticket.created_by_user : ticket.assigned_to_user;
+
+      if (recipient && recipient.email) {
+        const now = new Date();
+
+        // B. CHECK: Is User Offline? (> 5 mins since last_seen)
+        const lastSeen = recipient.last_seen_at ? new Date(recipient.last_seen_at) : new Date(0);
+        const isOffline = (now.getTime() - lastSeen.getTime()) > (5 * 60 * 1000); 
+
+        // C. CHECK: Cooldown? (> 10 mins since last_email_sent_at)
+        const lastEmail = ticket.last_email_sent_at ? new Date(ticket.last_email_sent_at) : new Date(0);
+        const isCooldownOver = (now.getTime() - lastEmail.getTime()) > (10 * 60 * 1000);
+
+        // D. TRIGGER EMAIL
+        if (isOffline && isCooldownOver) {
+          console.log(`📧 Sending Batch Notification to ${recipient.email}`);
+          
+          await sendNewMessageNotification(
+            recipient.email,
+            ticket.id.toString(),
+            ticket.title || "Untitled",
+            comment.user?.full_name || "Support",
+            content // 👈 ✨ NOW PASSING THE ACTUAL MESSAGE CONTENT
+          );
+
+          // E. UPDATE TIMESTAMP (Starts the 10m timer)
+          await supabaseAdmin
+            .from('tickets')
+            .update({ last_email_sent_at: now.toISOString() })
+            .eq('id', id);
+            
+        } else {
+          console.log(`🔕 Skipped Email: Offline=${isOffline}, CooldownOver=${isCooldownOver}`);
+        }
+      }
+    }
 
     return NextResponse.json(comment);
 

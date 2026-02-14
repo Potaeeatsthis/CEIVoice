@@ -30,7 +30,7 @@ export async function sendTicketNotification(
   if (['SOLVED', 'MERGED', 'DEADLINE'].includes(trigger)) {
     if (ticket.created_by_user?.email) {
       emailPromises.push(resend.emails.send({
-        from: 'CEiVoice Support <onboarding@resend.dev>', // Update this in production
+        from: 'CEiVoice Support <support@ceivoice.com>', 
         to: ticket.created_by_user.email,
         subject: `[Update] Ticket #${ticket.id} Notification`,
         react: TicketUpdateEmail({
@@ -52,7 +52,7 @@ export async function sendTicketNotification(
     // 1. Notify Creator ("Assigned to Bob")
     if (ticket.created_by_user?.email && staffUser) {
       emailPromises.push(resend.emails.send({
-        from: 'CEiVoice Support <onboarding@resend.dev>',
+        from: 'CEiVoice Support <support@ceivoice.com>', 
         to: ticket.created_by_user.email,
         subject: `[Update] Ticket #${ticket.id} Assigned`,
         react: TicketUpdateEmail({
@@ -67,14 +67,14 @@ export async function sendTicketNotification(
     // 2. Notify Staff ("You have been assigned")
     if (staffUser?.email) {
       emailPromises.push(resend.emails.send({
-        from: 'CEiVoice System <onboarding@resend.dev>',
+        from: 'CEiVoice System <support@ceivoice.com>', 
         to: staffUser.email,
         subject: `[Action Required] Assigned Ticket #${ticket.id}`,
         react: TicketUpdateEmail({
           ...baseProps,
           type: 'ASSIGNED_STAFF',
           recipientName: staffUser.full_name,
-          link: `${APP_URL}/admin/tickets/${ticket.id}` // Link to Admin Console
+          link: `${APP_URL}/admin/tickets/${ticket.id}`
         })
       }));
     }
@@ -82,4 +82,48 @@ export async function sendTicketNotification(
 
   // Execute all sends
   await Promise.allSettled(emailPromises);
+<<<<<<< HEAD
 }
+=======
+}
+
+// ✨ UPDATED: Now accepts 'messageContent'
+export async function sendNewMessageNotification(
+  userEmail: string, 
+  ticketId: string, 
+  ticketTitle: string, 
+  senderName: string,
+  messageContent: string // 👈 NEW PARAMETER
+) {
+  if (!process.env.RESEND_API_KEY) return;
+
+  await resend.emails.send({
+    from: 'CEiVoice Notification <support@ceivoice.com>',
+    to: userEmail,
+    subject: `New messages in Ticket #${ticketId}`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+        <h2 style="color: #10b981;">New Activity</h2>
+        <p><strong>${senderName}</strong> sent you a message regarding ticket <strong>#${ticketId}: ${ticketTitle}</strong>.</p>
+        
+        <div style="background: #f4f4f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0; color: #333; font-size: 14px; font-style: italic;">
+            "${messageContent}"
+          </p>
+        </div>
+        
+        <p style="font-size: 12px; color: #666;">
+          (To reduce inbox clutter, we won't email you again for this ticket for at least 10 minutes.)
+        </p>
+        
+        <div style="margin-top: 24px;">
+          <a href="${APP_URL}/user/tickets/${ticketId}" 
+             style="background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+             View Conversation
+          </a>
+        </div>
+      </div>
+    `
+  });
+}
+>>>>>>> 7b7a3cc49e9e24cdbd695d56de7ab0c4860afdcf
