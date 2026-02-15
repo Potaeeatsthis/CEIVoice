@@ -61,11 +61,9 @@ try:
 except Exception as e:
     print(f"❌ Failed to load custom model: {e}")
 
-    class_names = []
-
 try:
-    print("Loading Summarizer...")
-    summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
+    print("Loading Title Generator (FLAN-T5)...")
+    summarizer = pipeline("text2text-generation", model="google/flan-t5-base")
 
     print("Loading Embedder...")
     embedder = SentenceTransformer("all-MiniLM-L6-v2")
@@ -132,16 +130,37 @@ def predict_category(text: str):
 
 def generate_smart_title(description: str) -> str:
     try:
-        if len(description) < 30:
+        if len(description) < 20:
             return description
 
-        summary = summarizer(description, max_length=25, min_length=5, do_sample=False)
-        title = summary[0]['summary_text']
+        # Truncate Input:
+        # T5 runs faster and more accurately if we don't feed it with full desc.
+        short_desc = description[:250]
+
+        # Strong Instruction:
+        prompt = f"Identify the core technical problem in 3-5 words: {short_desc}"
+
+        output = summarizer(
+            prompt, 
+            max_new_tokens=10,
+            do_sample=False, 
+            num_beams=4
+        )
+
+        title = output[0]['generated_text']
+
+        title = title.replace("Problem:", "").strip()
 
         if title.endswith('.'):
             title = title[:-1]
 
-        return title.strip()
+
+        # In case the model is messed up
+        if len(title) > 60:
+             title = "The model can not Generate title"+ title[:57] + "..."
+
+        return title.title()
+
     except Exception as e:
         print(f"Summarizer failed: {e}")
         return description.split('.')[0][:60] + "..."
@@ -179,7 +198,7 @@ def process_ticket(ticket_id: int, description: str):
     # Classify Category
     category, confidence = predict_category(description)
 
-    # Generate Smart Title (Raw)
+    # Generate Smart Title
     raw_title = generate_smart_title(description)
 
     # Prepend Category to Title ---
