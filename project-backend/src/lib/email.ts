@@ -1,4 +1,5 @@
 // src/lib/email.ts
+
 import { Resend } from 'resend';
 import TicketUpdateEmail from '@/components/emails/TicketUpdateEmail';
 
@@ -15,8 +16,6 @@ export async function sendTicketNotification(
   if (!process.env.RESEND_API_KEY) return;
 
   const emailPromises = [];
-
-  // 1. Base Properties for Email Template
   const baseProps = {
     ticketId: ticket.id,
     ticketTitle: ticket.title || "Untitled Ticket",
@@ -24,35 +23,25 @@ export async function sendTicketNotification(
     link: `${APP_URL}/user/tickets/${ticket.id}`
   };
 
-  // --- LOGIC PER TRIGGER ---
-
-  // A) SOLVED, MERGED, DEADLINE -> Send to Ticket Creator
-  if (['SOLVED', 'MERGED', 'DEADLINE'].includes(trigger)) {
-    if (ticket.created_by_user?.email) {
-      emailPromises.push(resend.emails.send({
-        from: 'CEiVoice Support <support@ceivoice.com>', 
-        to: ticket.created_by_user.email,
-        subject: `[Update] Ticket #${ticket.id} Notification`,
-        react: TicketUpdateEmail({
-          ...baseProps,
-          type: trigger,
-          recipientName: ticket.created_by_user.full_name,
-          newValue: trigger === 'DEADLINE' && ticket.deadline 
-            ? new Date(ticket.deadline).toLocaleDateString('en-GB') 
-            : undefined
-        })
-      }));
-    }
+  if (['SOLVED', 'MERGED', 'DEADLINE'].includes(trigger) && ticket.created_by_user?.email) {
+    emailPromises.push(resend.emails.send({
+      from: 'CEiVoice Support <onboarding@resend.dev>',
+      to: ticket.created_by_user.email,
+      subject: `[Update] Ticket #${ticket.id} Notification`,
+      react: TicketUpdateEmail({
+        ...baseProps,
+        type: trigger,
+        recipientName: ticket.created_by_user.full_name,
+        newValue: trigger === 'DEADLINE' && ticket.deadline ? new Date(ticket.deadline).toLocaleDateString('en-GB') : undefined
+      })
+    }));
   }
 
-  // B) ASSIGNED -> Send to TWO people (Creator & New Staff)
   if (trigger === 'ASSIGNED') {
     const staffUser = ticket.assigned_to_user;
-    
-    // 1. Notify Creator ("Assigned to Bob")
     if (ticket.created_by_user?.email && staffUser) {
       emailPromises.push(resend.emails.send({
-        from: 'CEiVoice Support <support@ceivoice.com>', 
+        from: 'CEiVoice Support <onboarding@resend.dev>',
         to: ticket.created_by_user.email,
         subject: `[Update] Ticket #${ticket.id} Assigned`,
         react: TicketUpdateEmail({
@@ -63,11 +52,9 @@ export async function sendTicketNotification(
         })
       }));
     }
-
-    // 2. Notify Staff ("You have been assigned")
     if (staffUser?.email) {
       emailPromises.push(resend.emails.send({
-        from: 'CEiVoice System <support@ceivoice.com>', 
+        from: 'CEiVoice System <onboarding@resend.dev>',
         to: staffUser.email,
         subject: `[Action Required] Assigned Ticket #${ticket.id}`,
         react: TicketUpdateEmail({
@@ -79,40 +66,30 @@ export async function sendTicketNotification(
       }));
     }
   }
-
-  // Execute all sends
   await Promise.allSettled(emailPromises);
 }
 
-// ✨ UPDATED: Now accepts 'messageContent'
 export async function sendNewMessageNotification(
   userEmail: string, 
   ticketId: string, 
   ticketTitle: string, 
   senderName: string,
-  messageContent: string // 👈 NEW PARAMETER
+  messageContent: string
 ) {
   if (!process.env.RESEND_API_KEY) return;
 
   await resend.emails.send({
-    from: 'CEiVoice Notification <support@ceivoice.com>',
+    from: 'CEiVoice Notification <onboarding@resend.dev>',
     to: userEmail,
     subject: `New messages in Ticket #${ticketId}`,
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
         <h2 style="color: #10b981;">New Activity</h2>
         <p><strong>${senderName}</strong> sent you a message regarding ticket <strong>#${ticketId}: ${ticketTitle}</strong>.</p>
-        
         <div style="background: #f4f4f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
-          <p style="margin: 0; color: #333; font-size: 14px; font-style: italic;">
-            "${messageContent}"
-          </p>
+          <p style="margin: 0; color: #333; font-size: 14px; font-style: italic;">"${messageContent}"</p>
         </div>
-        
-        <p style="font-size: 12px; color: #666;">
-          (To reduce inbox clutter, we won't email you again for this ticket for at least 10 minutes.)
-        </p>
-        
+        <p style="font-size: 12px; color: #666;">(To reduce inbox clutter, we won't email you again for this ticket for at least 10 minutes.)</p>
         <div style="margin-top: 24px;">
           <a href="${APP_URL}/user/tickets/${ticketId}" 
              style="background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
