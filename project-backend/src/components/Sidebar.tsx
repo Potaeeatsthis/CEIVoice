@@ -1,11 +1,28 @@
 'use client';
-
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { supabaseBrowser } from '@/lib/supabase-browser'; 
 
 export default function Sidebar({ userRole, userInitial, userName }: { userRole: string, userInitial: string, userName: string }) {
   const pathname = usePathname();
   const isAdmin = userRole === 'ADMIN' || userRole === 'ASSIGNEE';
+  const [totalUnread, setTotalUnread] = useState(0);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      const { data: { user } } = await supabaseBrowser.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabaseBrowser.rpc('get_unread_stats', { current_user_id: user.id });
+      if (data && !error) {
+        const total = data.reduce((sum: number, item: any) => sum + (item.unread_count || 0), 0);
+        setTotalUnread(total);
+      }
+    };
+    fetchStats();
+    const interval = setInterval(fetchStats, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <aside className="w-64 flex flex-col border-r border-zinc-800 bg-zinc-950/50 h-full">
@@ -15,18 +32,15 @@ export default function Sidebar({ userRole, userInitial, userName }: { userRole:
           CEIVoice
         </h1>
       </div>
-
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {/* --- ADMIN CONSOLE --- */}
         {isAdmin && (
           <div className="mb-6 space-y-1">
-            <div className="px-3 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-              Admin Console
-            </div>
+            <div className="px-3 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Admin Console</div>
             <SidebarLink 
               href="/admin/tickets" 
               label="Admin Queue" 
               currentPath={pathname}
+              badgeCount={totalUnread} 
               icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>}
             />
             <SidebarLink 
@@ -43,16 +57,13 @@ export default function Sidebar({ userRole, userInitial, userName }: { userRole:
             />
           </div>
         )}
-
-        {/* --- PERSONAL WORKSPACE --- */}
         <div className="space-y-1">
-          <div className="px-3 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-            Personal
-          </div>
+          <div className="px-3 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Personal</div>
           <SidebarLink 
             href="/user/tickets" 
             label="My Tickets" 
             currentPath={pathname}
+            badgeCount={!isAdmin ? totalUnread : undefined} 
             icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>}
           />
           <SidebarLink 
@@ -63,8 +74,6 @@ export default function Sidebar({ userRole, userInitial, userName }: { userRole:
           />
         </div>
       </nav>
-
-      {/* User Profile */}
       <div className="p-4 border-t border-zinc-800 bg-zinc-900/30">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white border border-zinc-700">
@@ -80,24 +89,23 @@ export default function Sidebar({ userRole, userInitial, userName }: { userRole:
   );
 }
 
-// --- LINK COMPONENT WITH IMPROVED HOVER ---
-function SidebarLink({ href, icon, label, currentPath }: { href: string; icon: React.ReactNode; label: string; currentPath: string }) {
-  // Check if link is active
+function SidebarLink({ href, icon, label, currentPath, badgeCount }: { href: string; icon: React.ReactNode; label: string; currentPath: string, badgeCount?: number }) {
   const isActive = currentPath === href || (href !== '/' && currentPath.startsWith(href));
-
   return (
     <Link 
       href={href} 
-      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 group
-        ${isActive 
-          ? 'bg-zinc-800 text-white shadow-sm shadow-black/40' // ACTIVE STATE: Lighter BG, White Text
-          : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' // HOVER STATE: Subtle BG fade, White Text
-        }`}
+      className={`flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 group
+        ${isActive ? 'bg-zinc-800 text-white shadow-sm shadow-black/40' : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'}`}
     >
-      <span className={`${isActive ? 'text-white' : 'text-zinc-500 group-hover:text-white'} transition-colors`}>
-        {icon}
-      </span>
-      <span>{label}</span>
+      <div className="flex items-center gap-3">
+        <span className={`${isActive ? 'text-white' : 'text-zinc-500 group-hover:text-white'} transition-colors`}>{icon}</span>
+        <span>{label}</span>
+      </div>
+      {badgeCount !== undefined && badgeCount > 0 && (
+        <span className="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-sm">
+          {badgeCount > 99 ? '99+' : badgeCount}
+        </span>
+      )}
     </Link>
   );
 }
