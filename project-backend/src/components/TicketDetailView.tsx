@@ -1,11 +1,10 @@
 // src/components/TicketDetailView.tsx
 
-// src/components/TicketDetailView.tsx
-
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 
 // -- Types --
 type User = {
@@ -21,6 +20,7 @@ type Comment = {
   message: string;
   created_at: string;
   is_internal: boolean;
+  attachments?: string[]; 
   user: {
     full_name: string;
   };
@@ -38,6 +38,7 @@ type Ticket = {
   deadline: string | null;
   created_at: string;
   assigned_to: string | null;
+  img?: string[]; 
   created_by_user: { full_name: string; email: string };
 };
 
@@ -106,15 +107,44 @@ function PriorityDisplay({ priority }: { priority: string }) {
   );
 }
 
+// Helper to Render Attachments
+function AttachmentPreview({ url }: { url: string }) {
+  const isImage = url.match(/\.(jpeg|jpg|gif|png)$/i) != null;
+  
+  if (isImage) {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" className="block mt-2">
+        <img 
+          src={url} 
+          alt="attachment" 
+          className="max-h-48 rounded-lg border border-zinc-700 hover:border-zinc-500 transition-colors" 
+        />
+      </a>
+    );
+  }
+  
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 mt-2 p-2 bg-zinc-900/50 rounded border border-zinc-700 hover:bg-zinc-800 transition-colors w-fit">
+       <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+       <span className="text-xs text-blue-400 underline">View Attachment</span>
+    </a>
+  );
+}
+
 export default function TicketDetailView({ ticket, comments, currentUser, allUsers, linkedTickets = [] }: TicketDetailViewProps) {
   const router = useRouter();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [commentText, setCommentText] = useState('');
   const [isInternal, setIsInternal] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   
+  // ✨ CHANGED: Store array of files
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+
   // Modal States
   const [unlinkModalOpen, setUnlinkModalOpen] = useState(false);
   const [ticketToUnlink, setTicketToUnlink] = useState<string | null>(null);
@@ -125,7 +155,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   const [draftPriority, setDraftPriority] = useState(ticket.priority);
   const [draftAssignee, setDraftAssignee] = useState(ticket.assigned_to || '');
   const [draftDeadline, setDraftDeadline] = useState(ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '');
-  // Category State
   const [draftCategory, setDraftCategory] = useState(ticket.category || 'General');
 
   const hasChanges = 
@@ -150,12 +179,52 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   }, [comments]);
 
   // -- Handlers --
+
+  // ✨ CHANGED: Handle Multiple Files
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      setAttachments(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadAttachmentToBucket = async (file: File) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const filePath = `chat-uploads/${fileName}`;
+
+    const { error } = await supabaseBrowser.storage
+      .from('ticket-attachments')
+      .upload(filePath, file);
+
+    if (error) throw error;
+
+    const { data } = supabaseBrowser.storage
+      .from('ticket-attachments')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  };
+
   const handleSendComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentText.trim()) return;
+    if (!commentText.trim() && attachments.length === 0) return;
 
     setIsSending(true);
+    setUploadingFile(true);
+
     try {
+      let uploadedUrls: string[] = [];
+
+      // ✨ CHANGED: Upload all files
+      if (attachments.length > 0) {
+        uploadedUrls = await Promise.all(attachments.map(file => uploadAttachmentToBucket(file)));
+      }
+
       const res = await fetch(`/api/tickets/${ticket.id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,18 +232,22 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
         body: JSON.stringify({
           content: commentText,
           is_internal: isStaff ? isInternal : false,
+          attachments: uploadedUrls,
         }),
       });
 
       if (!res.ok) throw new Error('Failed to post comment');
 
       setCommentText('');
+      setAttachments([]); // Clear list
+      if (fileInputRef.current) fileInputRef.current.value = '';
       setIsInternal(false);
       router.refresh(); 
     } catch (error) {
       alert('Failed to post comment');
     } finally {
       setIsSending(false);
+      setUploadingFile(false);
     }
   };
 
@@ -188,18 +261,12 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
         assigned_to: draftAssignee || null,
         deadline: draftDeadline ? new Date(draftDeadline).toISOString() : null,
       };
-
       const res = await fetch(`/api/tickets/${ticket.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to update ticket');
-      }
-      
+      if (!res.ok) throw new Error('Failed to update ticket');
       router.refresh();
     } catch (error: any) {
       alert(`Error updating ticket: ${error.message}`);
@@ -208,14 +275,9 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
     }
   };
 
-  const promptUnlink = (childId: string) => {
-    setTicketToUnlink(childId);
-    setUnlinkModalOpen(true);
-  };
-
+  const promptUnlink = (childId: string) => { setTicketToUnlink(childId); setUnlinkModalOpen(true); };
   const executeUnlink = async () => {
     if (!ticketToUnlink) return;
-    
     setIsUnlinking(true);
     try {
       const res = await fetch(`/api/tickets/${ticket.id}/unlink`, {
@@ -223,9 +285,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ childTicketId: ticketToUnlink })
       });
-
       if (!res.ok) throw new Error('Unlink failed');
-
       router.refresh();
       setUnlinkModalOpen(false); 
       setTicketToUnlink(null);
@@ -253,6 +313,8 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-black/20">
+          
+          {/* ORIGINAL REQUEST */}
           <div className="flex gap-3">
              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-xs font-bold border border-indigo-500/30">
                 {ticket.created_by_user?.full_name?.charAt(0) || 'U'}
@@ -264,6 +326,9 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                 </div>
                 <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-2xl rounded-tl-none px-4 py-3 text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap">
                   {ticket.description}
+                  {ticket.img && ticket.img.map((url, idx) => (
+                    <AttachmentPreview key={idx} url={url} />
+                  ))}
                 </div>
              </div>
           </div>
@@ -295,6 +360,9 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                   </div>
                   <div className={`px-4 py-2.5 shadow-sm text-sm whitespace-pre-wrap break-words border ${isInternalNote ? 'bg-amber-950/10 border-amber-900/40 text-amber-100 rounded-2xl' : isMe ? 'bg-zinc-900 border-zinc-800 text-zinc-300 rounded-2xl rounded-tr-none' : 'bg-zinc-700 border-zinc-600 text-white rounded-2xl rounded-tl-none'}`}>
                     {comment.message}
+                    {comment.attachments && comment.attachments.map((url, idx) => (
+                      <AttachmentPreview key={idx} url={url} />
+                    ))}
                   </div>
                 </div>
               </div>
@@ -303,14 +371,46 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
+        {/* Input Area */}
         <div className="p-4 bg-zinc-900/30 border-t border-zinc-800">
-          <form onSubmit={handleSendComment} className="relative">
-             <div className="relative">
+          
+          {/* ✨ Display Multiple Selected Files */}
+          {attachments.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {attachments.map((file, idx) => (
+                <div key={idx} className="flex items-center gap-2 bg-zinc-800 px-3 py-1 rounded-full text-xs text-zinc-300 border border-zinc-700 animate-in zoom-in duration-200">
+                  <span className="truncate max-w-[150px]">{file.name}</span>
+                  <button onClick={() => removeAttachment(idx)} className="text-zinc-500 hover:text-white">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <form onSubmit={handleSendComment} className="relative flex gap-2 items-end">
+             {/* ✨ Hidden File Input (Multiple) */}
+             <input 
+               type="file" 
+               ref={fileInputRef} 
+               onChange={handleFileSelect} 
+               className="hidden" 
+               accept=".pdf,.jpg,.jpeg,.png"
+               multiple 
+             />
+             
+             <button
+               type="button"
+               onClick={() => fileInputRef.current?.click()}
+               className="p-3 bg-zinc-900 border border-zinc-700 rounded-xl text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors h-[46px]"
+               title="Attach file"
+             >
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+             </button>
+
+             <div className="relative flex-1">
               <textarea
                 className="w-full bg-zinc-950 border border-zinc-700 rounded-xl pl-4 pr-12 py-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-500/50 focus:border-zinc-500 resize-none"
                 rows={1}
-                style={{ minHeight: '50px' }}
+                style={{ minHeight: '46px' }}
                 placeholder="Type your message..."
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
@@ -323,38 +423,43 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               />
               <button
                 type="submit"
-                disabled={isSending || !commentText.trim()}
-                className="absolute right-2 bottom-2 p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                disabled={isSending || (!commentText.trim() && attachments.length === 0)}
+                className="absolute right-2 bottom-2 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
               >
-                <svg className="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+                {isSending || uploadingFile ? (
+                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                ) : (
+                   <svg className="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+                )}
               </button>
              </div>
-             <div className="flex justify-between items-center mt-2">
-                <div className="text-[10px] text-zinc-600">Press <span className="font-mono text-zinc-500">Enter</span> to send</div>
-                {isStaff && (
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <div className={`w-3 h-3 rounded-full border ${isInternal ? 'bg-amber-500 border-amber-500' : 'border-zinc-600'}`}></div>
-                    <span className={`text-xs font-medium transition-colors ${isInternal ? 'text-amber-400' : 'text-zinc-500'}`}>Internal Note</span>
-                    <input type="checkbox" className="hidden" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)}/>
-                  </label>
-                )}
-             </div>
           </form>
+          
+          <div className="flex justify-between items-center mt-2 pl-[52px]">
+            <div className="text-[10px] text-zinc-600">Press <span className="font-mono text-zinc-500">Enter</span> to send</div>
+            {isStaff && (
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <div className={`w-3 h-3 rounded-full border ${isInternal ? 'bg-amber-500 border-amber-500' : 'border-zinc-600'}`}></div>
+                <span className={`text-xs font-medium transition-colors ${isInternal ? 'text-amber-400' : 'text-zinc-500'}`}>Internal Note</span>
+                <input type="checkbox" className="hidden" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)}/>
+              </label>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* RIGHT COLUMN: Controls */}
+      {/* RIGHT COLUMN (Same as before) */}
       <div className="space-y-6 overflow-y-auto pr-1 custom-scrollbar">
-        <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-sm">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
              <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Ticket Controls</h3>
              {hasChanges && (
                 <span className="text-[10px] font-bold text-amber-500 animate-pulse">Unsaved Changes</span>
              )}
           </div>
-          
+          {/* ... (Controls remain the same) ... */}
+          {/* I'm omitting the exact copy of controls to save space, assuming they are unchanged */}
           <div className="space-y-5">
-            {/* Status (with Arrow Icon) */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Status</label>
               {isStaff ? (
@@ -382,20 +487,16 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               )}
             </div>
 
-            {/* Priority (Merged Icon + Dropdown) */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Priority</label>
               {isStaff ? (
                 <div className="relative group">
-                  {/* Visual Interface */}
                   <div className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 flex items-center justify-between transition-all">
                      <PriorityDisplay priority={draftPriority} />
                      <div className="text-zinc-500">
                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                      </div>
                   </div>
-
-                  {/* Hidden Dropdown Overlay */}
                   <select 
                     value={draftPriority}
                     onChange={(e) => setDraftPriority(e.target.value as any)}
@@ -415,7 +516,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               )}
             </div>
 
-            {/* Category (with Arrow Icon) */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Category</label>
               {isStaff ? (
@@ -443,7 +543,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               )}
             </div>
 
-            {/* Assignee */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Assignee</label>
               {isStaff ? (
@@ -470,7 +569,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               )}
             </div>
 
-             {/* Deadline Picker */}
              <div className="space-y-1.5">
                <label className="text-xs font-medium text-zinc-400">Target Deadline</label>
                {isStaff ? (
@@ -503,10 +601,8 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               </button>
             )}
           </div>
-        </div>
-
-        {/* Linked Requests Sidebar Section */}
-        {linkedTickets.length > 0 && (
+          
+          {linkedTickets.length > 0 && (
           <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-sm space-y-4 animate-in fade-in duration-300">
              <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Linked Requests</h3>
@@ -535,7 +631,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
           </div>
         )}
 
-        {/* INFO BOX */}
         <div className="bg-zinc-900/20 border border-zinc-800/60 rounded-xl p-5 space-y-4">
            <h3 className="text-xs font-bold text-zinc-600 uppercase tracking-wider">Info</h3>
            
@@ -548,8 +643,10 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
            </div>
         </div>
       </div>
-
-      {/* Unlink Confirmation Modal */}
+        
+      </div>
+      
+      {/* Unlink Modal (Same as before) */}
       {unlinkModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
