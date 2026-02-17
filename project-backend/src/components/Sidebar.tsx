@@ -8,6 +8,7 @@ export default function Sidebar({ userRole, userInitial, userName }: { userRole:
   const pathname = usePathname();
   const isAdmin = userRole === 'ADMIN' || userRole === 'ASSIGNEE';
   const [totalUnread, setTotalUnread] = useState(0);
+  const [draftCount, setDraftCount] = useState(0);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -21,6 +22,19 @@ export default function Sidebar({ userRole, userInitial, userName }: { userRole:
     };
     fetchStats();
     const interval = setInterval(fetchStats, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const fetchDraftCount = async () => {
+      const { count } = await supabaseBrowser
+        .from('tickets')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'DRAFT');
+      setDraftCount(count || 0);
+    };
+    fetchDraftCount();
+    const interval = setInterval(fetchDraftCount, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -47,6 +61,7 @@ export default function Sidebar({ userRole, userInitial, userName }: { userRole:
               href="/admin/drafts" 
               label="Drafts (AI)" 
               currentPath={pathname}
+              badgeCount={draftCount}
               icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
             />
             <SidebarLink 

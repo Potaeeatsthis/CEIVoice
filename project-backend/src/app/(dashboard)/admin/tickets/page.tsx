@@ -7,9 +7,9 @@ import PaginationControls from '@/components/PaginationControls';
 
 const PAGE_SIZE = 5; // Set limit per page
 
-// 1. Global Stats (Unaffected by pagination/filters)
+// 1. Global Stats (Unaffected by pagination/filters, excludes DRAFTs)
 async function getGlobalStats() {
-  const { data, error } = await supabaseAdmin.from('tickets').select('status');
+  const { data, error } = await supabaseAdmin.from('tickets').select('status').neq('status', 'DRAFT');
   if (error || !data) return { total: 0, pending: 0, inProgress: 0, solved: 0 };
   return {
     total: data.length,
@@ -38,6 +38,7 @@ async function getTickets(searchParams: { [key: string]: string | undefined }) {
       created_by_user:users!tickets_created_by_fkey (full_name, email)
     `, { count: 'exact' }) // 👈 Request exact count for pagination
     .neq('status', status === 'MERGED' ? 'IGNORE_THIS_FILTER' : 'MERGED')
+    .neq('status', 'DRAFT')
     .order('created_at', { ascending: false })
     .range(from, to); // 👈 Apply Pagination Limit
 
