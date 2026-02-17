@@ -5,7 +5,7 @@ import TicketUpdateEmail from '@/components/emails/TicketUpdateEmail';
 const resend = new Resend(process.env.RESEND_API_KEY);
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-type TriggerType = 'SOLVED' | 'MERGED' | 'DEADLINE' | 'ASSIGNED';
+type TriggerType = 'SOLVED' | 'FAILED' | 'MERGED' | 'DEADLINE' | 'ASSIGNED';
 
 export async function sendTicketNotification(
   trigger: TriggerType, 
@@ -26,8 +26,8 @@ export async function sendTicketNotification(
 
   // --- LOGIC PER TRIGGER ---
 
-  // A) SOLVED, MERGED, DEADLINE -> Send to Ticket Creator
-  if (['SOLVED', 'MERGED', 'DEADLINE'].includes(trigger)) {
+  // A) SOLVED, FAILED, MERGED, DEADLINE -> Send to Ticket Creator
+  if (['SOLVED', 'FAILED', 'MERGED', 'DEADLINE'].includes(trigger)) {
     if (ticket.created_by_user?.email) {
       emailPromises.push(resend.emails.send({
         from: 'CEiVoice Support <support@ceivoice.com>', 
@@ -37,9 +37,12 @@ export async function sendTicketNotification(
           ...baseProps,
           type: trigger,
           recipientName: ticket.created_by_user.full_name,
-          newValue: trigger === 'DEADLINE' && ticket.deadline 
-            ? new Date(ticket.deadline).toLocaleDateString('en-GB') 
-            : undefined
+          newValue:
+            trigger === 'DEADLINE' && ticket.deadline
+              ? new Date(ticket.deadline).toLocaleDateString('en-GB')
+              : trigger === 'FAILED'
+              ? ticket.failure_reason
+              : undefined
         })
       }));
     }
@@ -82,9 +85,6 @@ export async function sendTicketNotification(
 
   // Execute all sends
   await Promise.allSettled(emailPromises);
-<<<<<<< HEAD
-}
-=======
 }
 
 // ✨ UPDATED: Now accepts 'messageContent'
@@ -126,4 +126,3 @@ export async function sendNewMessageNotification(
     `
   });
 }
->>>>>>> 7b7a3cc49e9e24cdbd695d56de7ab0c4860afdcf

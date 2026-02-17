@@ -18,7 +18,7 @@ type User = {
 type Comment = {
   id: string;
   user_id: string;
-  message: string;
+  content: string;
   created_at: string;
   is_internal: boolean;
   user: {
@@ -294,7 +294,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                     {isInternalNote && <span className="text-[9px] font-bold uppercase tracking-wide text-amber-500 border border-amber-900/50 bg-amber-950/30 px-1.5 rounded">Internal</span>}
                   </div>
                   <div className={`px-4 py-2.5 shadow-sm text-sm whitespace-pre-wrap break-words border ${isInternalNote ? 'bg-amber-950/10 border-amber-900/40 text-amber-100 rounded-2xl' : isMe ? 'bg-zinc-900 border-zinc-800 text-zinc-300 rounded-2xl rounded-tr-none' : 'bg-zinc-700 border-zinc-600 text-white rounded-2xl rounded-tl-none'}`}>
-                    {comment.message}
+                    {comment.content}
                   </div>
                 </div>
               </div>
@@ -357,21 +357,13 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             {/* Status (with Arrow Icon) */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Status</label>
-<<<<<<< HEAD
               {isAdmin ? (
-=======
-              {isStaff ? (
                 <div className="relative">
->>>>>>> 7b7a3cc49e9e24cdbd695d56de7ab0c4860afdcf
                   <select 
                     value={draftStatus}
                     onChange={(e) => setDraftStatus(e.target.value as TicketStatus)}
                     disabled={isUpdating}
-<<<<<<< HEAD
-                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all"
-=======
                     className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all appearance-none pr-8 cursor-pointer"
->>>>>>> 7b7a3cc49e9e24cdbd695d56de7ab0c4860afdcf
                   >
                     <option value="NEW">New</option>
                     <option value="IN_PROGRESS">In Progress</option>
@@ -393,15 +385,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             {/* Priority (Merged Icon + Dropdown) */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Priority</label>
-<<<<<<< HEAD
               {isAdmin ? (
-                <div className="space-y-2">
-                   <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg px-3 py-2">
-                      <PriorityDisplay priority={draftPriority} />
-                   </div>
-                   <select 
-=======
-              {isStaff ? (
                 <div className="relative group">
                   {/* Visual Interface */}
                   <div className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 flex items-center justify-between transition-all">
@@ -413,7 +397,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
 
                   {/* Hidden Dropdown Overlay */}
                   <select 
->>>>>>> 7b7a3cc49e9e24cdbd695d56de7ab0c4860afdcf
                     value={draftPriority}
                     onChange={(e) => setDraftPriority(e.target.value as any)}
                     disabled={isUpdating}
@@ -435,7 +418,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             {/* Category (with Arrow Icon) */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Category</label>
-              {isStaff ? (
+              {isAdmin ? (
                 <div className="relative">
                   <select 
                     value={draftCategory}
@@ -463,12 +446,8 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             {/* Assignee */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Assignee</label>
-<<<<<<< HEAD
               {isAdmin ? (
-=======
-              {isStaff ? (
                 <div className="relative">
->>>>>>> 7b7a3cc49e9e24cdbd695d56de7ab0c4860afdcf
                   <select 
                     value={draftAssignee}
                     onChange={(e) => setDraftAssignee(e.target.value)}

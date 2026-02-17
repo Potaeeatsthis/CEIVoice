@@ -1,9 +1,87 @@
-// src/app/api/tickets/route.ts
-
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { cookies } from 'next/headers';
 import { publishToQueue } from '@/lib/rabbitmq';
+
+export async function GET(request: Request) {
+  try {
+    const now = new Date().toISOString();
+    console.log("AUTO FAIL CHECK RUNNING at:", now);
+
+    // 1️⃣ Get overdue tickets first (debug safe way)
+    const { data: overdueTickets, error: fetchError } = await supabaseAdmin
+      .from('tickets')
+      .select('id, deadline, status')
+      .lt('deadline', now)
+      .not('deadline', 'is', null)
+      .in('status', ['NEW', 'IN PROGRESS']); // only fail active tickets
+
+    if (fetchError) {
+      console.error("Fetch overdue error:", fetchError);
+    }
+
+    console.log("Overdue tickets found:", overdueTickets);
+
+    // 2️⃣ Update them to FAILED
+    let failedTickets: any[] = [];
+
+    if (overdueTickets && overdueTickets.length > 0) {
+      const ids = overdueTickets.map(t => t.id);
+
+      const { data: updated, error: updateError } = await supabaseAdmin
+        .from('tickets')
+        .update({
+          status: 'FAILED',
+          failed_at: now
+        })
+        .in('id', ids)
+        .select('id');
+
+      if (updateError) {
+        console.error("Update failed error:", updateError);
+      }
+
+      failedTickets = updated || [];
+      console.log("Tickets marked FAILED:", failedTickets);
+    }
+
+    // 3️⃣ Insert system comment
+    if (failedTickets.length > 0) {
+      const systemComments = failedTickets.map(ticket => ({
+        ticket_id: ticket.id,
+        content:
+          'System: Ticket automatically marked as FAILED due to deadline expiry.',
+        type: 'system',
+        is_internal: false,
+        created_at: now
+      }));
+
+      const { error: commentError } = await supabaseAdmin
+        .from('comments')
+        .insert(systemComments);
+
+      if (commentError) {
+        console.error("Insert comment error:", commentError);
+      }
+    }
+
+    // 4️⃣ Return updated tickets list
+    const { data: tickets, error } = await supabaseAdmin
+      .from('tickets')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return NextResponse.json(tickets);
+
+  } catch (error: any) {
+    console.error('GET Tickets Error:', error);
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -11,14 +89,20 @@ export async function POST(request: Request) {
     try {
       body = await request.json();
     } catch (e) {
-      return NextResponse.json({ error: 'Request body cannot be empty' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Request body cannot be empty' },
+        { status: 400 }
+      );
     }
 
     const { email, message, title } = body;
     const userId = request.headers.get('x-user-id');
 
     if (!message) {
-      return NextResponse.json({ error: 'Message is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Message is required' },
+        { status: 400 }
+      );
     }
 
     const { data: ticket, error } = await supabaseAdmin
@@ -26,8 +110,8 @@ export async function POST(request: Request) {
       .insert({
         description: message,
         status: 'DRAFT',
-        created_by: userId || null, 
-        user_email: email, 
+        created_by: userId || null,
+        user_email: email,
         origin: 'web',
         title: title || null
       })
@@ -53,6 +137,9 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('Submit Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
   }
 }

@@ -1,4 +1,4 @@
-// src/components/TicketDetailView.tsx
+// src/components/AssigneeTicketView.tsx
 
 'use client';
 
@@ -37,7 +37,8 @@ type Ticket = {
   created_at: string;
   assigned_to: string | null;
   created_by_user: { full_name: string; email: string };
-  ai_resolution?: string | null;
+  ai_solution?: string | null;
+  failure_reason?: string | null;
 };
 
 type LinkedTicket = {
@@ -114,10 +115,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   const [isSending, setIsSending] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   
-  // Modal States
-  const [unlinkModalOpen, setUnlinkModalOpen] = useState(false);
-  const [ticketToUnlink, setTicketToUnlink] = useState<string | null>(null);
-  const [isUnlinking, setIsUnlinking] = useState(false);
 
   // -- Draft States --
   const [draftStatus, setDraftStatus] = useState<TicketStatus>(ticket.status);
@@ -129,6 +126,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   const [showSolvedModal, setShowSolvedModal] = useState(false);
   const [showFailedModal, setShowFailedModal] = useState(false);
   const [resolutionText, setResolutionText] = useState('');
+  const [failureReason, setFailureReason] = useState('');
 
   const hasChanges = 
     draftStatus !== ticket.status || 
@@ -143,12 +141,26 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
     setDraftDeadline(ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '');
   }, [ticket]);
 
-  const isLocked = ticket.status === 'SOLVED' || ticket.status === 'FAILED';
+  const isLocked =
+    ticket.status === 'SOLVED' ||
+    (ticket.status === 'FAILED' && !!ticket.failure_reason);
+
   const isAssignee = currentUser.role === 'ASSIGNEE';
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [comments]);
+
+  useEffect(() => {
+    if (
+      ticket.status === 'FAILED' &&
+      !ticket.failure_reason &&
+      isAssignee
+    ) {
+      setShowFailedModal(true);
+    }
+  }, [ticket.status, ticket.failure_reason, isAssignee]);
+
 
   // -- Handlers --
   const handleSendComment = async (e: React.FormEvent) => {
@@ -195,46 +207,89 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
         body: JSON.stringify(payload),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to update ticket');
+        throw new Error(data.error || 'Failed to update ticket');
       }
-      
+
       router.refresh();
     } catch (error: any) {
-      alert(`Error updating ticket: ${error.message}`);
+      alert(error.message);
     } finally {
       setIsUpdating(false);
     }
   };
 
-  const promptUnlink = (childId: string) => {
-    setTicketToUnlink(childId);
-    setUnlinkModalOpen(true);
-  };
+const confirmSolved = async () => {
+  if (!resolutionText.trim()) {
+    alert('Please enter final resolution');
+    return;
+  }
 
-  const executeUnlink = async () => {
-    if (!ticketToUnlink) return;
-    
-    setIsUnlinking(true);
-    try {
-      const res = await fetch(`/api/tickets/${ticket.id}/unlink`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ childTicketId: ticketToUnlink })
-      });
+  setIsUpdating(true);
 
-      if (!res.ok) throw new Error('Unlink failed');
+  try {
+    const res = await fetch(`/api/tickets/${ticket.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'SOLVED',
+        ai_solution: resolutionText
+      }),
+    });
 
-      router.refresh();
-      setUnlinkModalOpen(false); 
-      setTicketToUnlink(null);
-    } catch (error) {
-      alert('Failed to unlink ticket');
-    } finally {
-      setIsUnlinking(false);
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to update ticket');
     }
-  };
+
+    setShowSolvedModal(false);
+    setResolutionText('');
+    router.refresh();
+  } catch (error: any) {
+    alert(error.message);
+  } finally {
+    setIsUpdating(false);
+  }
+};
+
+const confirmFailedStatus = async () => {
+  if (!failureReason.trim()) {
+    alert('Please enter failure reason');
+    return;
+  }
+
+  setIsUpdating(true);
+
+  try {
+    const res = await fetch(`/api/tickets/${ticket.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'FAILED',
+        failure_reason: failureReason
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to update ticket');
+    }
+
+    setShowFailedModal(false);
+    setFailureReason('');
+    setDraftStatus('FAILED');   // 🔥 important
+    router.refresh();
+  } catch (error: any) {
+    alert(error.message);
+  } finally {
+    setIsUpdating(false);
+  }
+};
+
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-140px)] relative">
@@ -247,7 +302,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
           <div className="flex items-center gap-2 text-xs text-zinc-400 mt-1">
             <span>Requested by {ticket.created_by_user?.full_name}</span>
             <span>•</span>
-            <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+            <span>{new Date(ticket.created_at).toISOString().split('T')[0]}</span>
           </div>
         </div>
 
@@ -277,10 +332,11 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
           )}
 
           {comments.map((comment) => {
+            
             if (comment.is_internal && !isAssignee) return null;
             const isMe = comment.user_id === currentUser.id;
             const isInternalNote = comment.is_internal;
-
+            
             return (
               <div key={comment.id} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                 <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border
@@ -290,7 +346,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                 <div className={`flex flex-col max-w-[75%] ${isMe ? 'items-end' : 'items-start'}`}>
                   <div className="flex items-center gap-2 mb-1 px-1">
                     {!isMe && <span className="text-xs font-medium text-zinc-400">{comment.user.full_name}</span>}
-                    <span className="text-[10px] text-zinc-600">{new Date(comment.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    <span className="text-[10px] text-zinc-600">{new Date(comment.created_at).toISOString().slice(11, 16)}</span>
                     {isInternalNote && <span className="text-[9px] font-bold uppercase tracking-wide text-amber-500 border border-amber-900/50 bg-amber-950/30 px-1.5 rounded">Internal</span>}
                   </div>
                   <div className={`px-4 py-2.5 shadow-sm text-sm whitespace-pre-wrap break-words border ${isInternalNote ? 'bg-amber-950/10 border-amber-900/40 text-amber-100 rounded-2xl' : isMe ? 'bg-zinc-900 border-zinc-800 text-zinc-300 rounded-2xl rounded-tr-none' : 'bg-zinc-700 border-zinc-600 text-white rounded-2xl rounded-tl-none'}`}>
@@ -300,6 +356,50 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               </div>
             );
           })}
+          {ticket.status === 'SOLVED' && ticket.ai_solution && (
+            <div className="flex gap-3 flex-row-reverse">
+              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 flex items-center justify-center text-xs font-bold">
+                {allUsers.find(u => u.id === ticket.assigned_to)?.full_name?.charAt(0) || 'A'}
+              </div>
+
+              <div className="flex flex-col max-w-[75%] items-end">
+                <div className="flex items-center gap-2 mb-1 px-1">
+                  <span className="text-xs font-medium text-zinc-400">
+                    {allUsers.find(u => u.id === ticket.assigned_to)?.full_name || 'Assignee'}
+                  </span>
+                  <span className="text-[10px] text-zinc-600">
+                    Final Resolution
+                  </span>
+                </div>
+
+                <div className="px-4 py-2.5 bg-emerald-900/30 border border-emerald-700 text-emerald-200 rounded-2xl rounded-tr-none text-sm whitespace-pre-wrap">
+                  {ticket.ai_solution}
+                </div>
+              </div>
+            </div>
+          )}
+          {ticket.status === 'FAILED' && ticket.failure_reason && (
+            <div className="flex gap-3 flex-row-reverse">
+              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 flex items-center justify-center text-xs font-bold">
+                {allUsers.find(u => u.id === ticket.assigned_to)?.full_name?.charAt(0) || 'A'}
+              </div>
+
+              <div className="flex flex-col max-w-[75%] items-end">
+                <div className="flex items-center gap-2 mb-1 px-1">
+                  <span className="text-xs font-medium text-zinc-400">
+                    {allUsers.find(u => u.id === ticket.assigned_to)?.full_name || 'Assignee'}
+                  </span>
+                  <span className="text-[10px] text-red-500 font-bold uppercase tracking-wide">
+                    Failure Reason
+                  </span>
+                </div>
+
+                <div className="px-4 py-2.5 bg-red-900/30 border border-red-700 text-red-200 rounded-2xl rounded-tr-none text-sm whitespace-pre-wrap">
+                  {ticket.failure_reason}
+                </div>
+              </div>
+            </div>
+          )}
           <div ref={bottomRef} />
         </div>
 
@@ -323,7 +423,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               />
               <button
                 type="submit"
-                disabled={isSending || !commentText.trim()}
+                disabled={isSending || !commentText.trim() || isLocked}
                 className="absolute right-2 bottom-2 p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
               >
                 <svg className="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
@@ -358,12 +458,27 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Status</label>
               {isAssignee ? (
-                  <select 
-                    value={draftStatus}
-                    onChange={(e) => setDraftStatus(e.target.value as TicketStatus)}
-                    disabled={isUpdating}
-                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all"
-                  >
+                <select
+                  value={draftStatus}
+                  onChange={(e) => {
+                    const value = e.target.value as TicketStatus;
+
+                    if (value === 'SOLVED') {
+                      setShowSolvedModal(true);
+                      return;
+                    }
+
+                    if (value === 'FAILED') {
+                      setShowFailedModal(true);
+                      return;
+                    }
+
+                    setDraftStatus(value);
+                  }}
+                  disabled={isUpdating || isLocked}
+                  className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white"
+                >
+
                     <option value="NEW">New</option>
                     <option value="IN_PROGRESS">In Progress</option>
                     <option value="SOLVED">Solved</option>
@@ -387,7 +502,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                    <select 
                     value={draftPriority}
                     onChange={(e) => setDraftPriority(e.target.value as any)}
-                    disabled={isUpdating}
+                    disabled={isUpdating || isLocked}
                     className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all"
                   >
                     <option value="LOW">Low (Normal)</option>
@@ -410,7 +525,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                   <select 
                     value={draftAssignee}
                     onChange={(e) => setDraftAssignee(e.target.value)}
-                    disabled={isUpdating}
+                    disabled={isUpdating || isLocked}
                     className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all"
                   >
                     <option value="">-- Unassigned --</option>
@@ -433,12 +548,14 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                    type="date"
                    value={draftDeadline}
                    onChange={(e) => setDraftDeadline(e.target.value)}
-                   disabled={isUpdating}
+                   disabled={isUpdating || isLocked}
                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all [color-scheme:dark]"
                  />
                ) : (
                  <div className="px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-sm text-zinc-300">
-                    {ticket.deadline ? new Date(ticket.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-') : 'No Deadline'}
+                  {ticket.deadline
+                    ? new Date(ticket.deadline).toISOString().split('T')[0]
+                    : 'No Deadline'}
                  </div>
                )}
             </div>
@@ -446,7 +563,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             {isAssignee && hasChanges && (
               <button
                 onClick={handleSaveChanges}
-                disabled={isUpdating}
+                disabled={isUpdating || isLocked}
                 className="w-full mt-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200"
               >
                 {isUpdating ? (
@@ -459,36 +576,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             )}
           </div>
         </div>
-
-        {/* Linked Requests Sidebar Section */}
-        {linkedTickets.length > 0 && (
-          <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-sm space-y-4 animate-in fade-in duration-300">
-             <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Linked Requests</h3>
-                <span className="text-[10px] font-bold text-white bg-zinc-800 px-1.5 py-0.5 rounded-full">{linkedTickets.length}</span>
-             </div>
-
-             <div className="space-y-3">
-               {linkedTickets.map(child => (
-                 <div key={child.id} className="group bg-zinc-900/40 border border-zinc-800 rounded-lg p-3 hover:bg-zinc-900 transition-colors">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="text-xs font-bold text-white font-mono">#{child.id}</span>
-                      <button 
-                        onClick={() => promptUnlink(child.id)}
-                        disabled={isUnlinking}
-                        className="text-zinc-600 hover:text-red-400 transition-colors p-1 hover:bg-red-500/10 rounded"
-                        title="Unlink and revert to NEW"
-                      >
-                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-                      </button>
-                    </div>
-                    <div className="text-xs text-zinc-300 truncate mb-1">{child.title}</div>
-                    <div className="text-[10px] text-zinc-500 truncate">{child.created_by_user?.email}</div>
-                 </div>
-               ))}
-             </div>
-          </div>
-        )}
 
         {/* INFO BOX (Ticket ID removed) */}
         <div className="bg-zinc-900/20 border border-zinc-800/60 rounded-xl p-5 space-y-4">
@@ -504,46 +591,70 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
            {/* Deadline removed from here */}
         </div>
       </div>
+      {showSolvedModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 w-full max-w-2xl space-y-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-white">Final Resolution</h3>
 
-      {/* Unlink Confirmation Modal */}
-      {unlinkModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 mb-4">
-                <svg className="h-6 w-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-bold text-white mb-2">Unlink Ticket?</h3>
-              <p className="text-sm text-zinc-400">
-                Are you sure you want to remove this ticket from the group? 
-                It will revert to <span className="text-blue-400 font-bold">NEW</span> status.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-px bg-zinc-800 border-t border-zinc-800">
-              <button 
-                onClick={() => setUnlinkModalOpen(false)}
-                className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-sm font-medium py-3.5 transition-colors"
+            <textarea
+              className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-3 text-sm text-white"
+              rows={8}
+              placeholder="Describe the final solution..."
+              value={resolutionText}
+              onChange={(e) => setResolutionText(e.target.value)}
+            />
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowSolvedModal(false)}
+                className="px-4 py-2 text-zinc-400 hover:text-white"
               >
                 Cancel
               </button>
-              <button 
-                onClick={executeUnlink}
-                disabled={isUnlinking}
-                className="bg-zinc-900 hover:bg-red-900/20 text-red-400 hover:text-red-300 text-sm font-bold py-3.5 transition-colors flex items-center justify-center gap-2"
+
+              <button
+                onClick={confirmSolved}
+                disabled={isUpdating}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg"
               >
-                {isUnlinking ? (
-                  <span className="animate-spin h-4 w-4 border-2 border-red-500/30 border-t-red-500 rounded-full"></span>
-                ) : (
-                  'Unlink'
-                )}
+                Confirm
               </button>
             </div>
           </div>
         </div>
       )}
+      {showFailedModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 w-full max-w-2xl space-y-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-white">Reason Required</h3>
 
+            <textarea
+              className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-3 text-sm text-white"
+              rows={8}
+              placeholder="Enter reason for marking this ticket as failed..."
+              value={failureReason}
+              onChange={(e) => setFailureReason(e.target.value)}
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowFailedModal(false)}
+                className="px-4 py-2 text-zinc-400 hover:text-white"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={confirmFailedStatus}
+                disabled={!failureReason.trim()}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

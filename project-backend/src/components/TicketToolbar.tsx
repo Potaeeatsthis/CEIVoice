@@ -53,6 +53,7 @@ export default function TicketToolbar() {
           <option value="NEW">New</option>
           <option value="IN_PROGRESS">In Progress</option>
           <option value="SOLVED">Solved</option>
+          <option value="FAILED">Failed</option>
           <option value="MERGED">Merged</option>
         </select>
 
