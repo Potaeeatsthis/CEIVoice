@@ -3,9 +3,8 @@
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
 import Sidebar from '@/components/Sidebar';
-// 👇 Import the components
 import GlobalNotificationListener from '@/components/GlobalNotificationListener';
-import Toast from '@/components/Toast'; 
+import { Toaster } from '@/components/SonnerToaster';
 
 async function getUser() {
   const cookieStore = await cookies();
@@ -39,11 +38,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
         userInitial={user.initial} 
         userName={user.name} 
       />
+      
       <main className="flex-1 overflow-auto bg-black relative">
         <div className="max-w-7xl mx-auto p-8">
-          {/* 👇 Inject Notification Logic */}
+          
           {user.id && <GlobalNotificationListener userId={user.id} />}
-          <Toast />
+          
+          <Toaster />
           
           {children}
         </div>
