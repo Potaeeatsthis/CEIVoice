@@ -151,7 +151,7 @@ export async function PATCH(
     // Conditionally add fields to the update object if they exist in the request
     if (title !== undefined) updates.title = title;
     if (description !== undefined) updates.description = description;
-    if (status) updates.status = status;
+    if (status !== undefined) updates.status = status;
     if (priority) updates.priority = priority;
     if (category) updates.category = category;
 

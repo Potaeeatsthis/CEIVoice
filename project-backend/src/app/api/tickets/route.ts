@@ -5,7 +5,6 @@ import { publishToQueue } from '@/lib/rabbitmq';
 export async function GET(request: Request) {
   try {
     const now = new Date().toISOString();
-    console.log("AUTO FAIL CHECK RUNNING at:", now);
 
     // 1️⃣ Get overdue tickets first (debug safe way)
     const { data: overdueTickets, error: fetchError } = await supabaseAdmin
@@ -18,8 +17,6 @@ export async function GET(request: Request) {
     if (fetchError) {
       console.error("Fetch overdue error:", fetchError);
     }
-
-    console.log("Overdue tickets found:", overdueTickets);
 
     // 2️⃣ Update them to FAILED
     let failedTickets: any[] = [];
@@ -48,8 +45,6 @@ export async function GET(request: Request) {
     if (failedTickets.length > 0) {
       const systemComments = failedTickets.map(ticket => ({
         ticket_id: ticket.id,
-        content:
-          'System: Ticket automatically marked as FAILED due to deadline expiry.',
         type: 'system',
         is_internal: false,
         created_at: now

@@ -1,6 +1,7 @@
 // src/lib/email.ts
 import { Resend } from 'resend';
 import TicketUpdateEmail from '@/components/emails/TicketUpdateEmail';
+import NotificationEmail from '@/components/emails/NotificationEmail';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -85,6 +86,28 @@ export async function sendTicketNotification(
 
   // Execute all sends
   await Promise.allSettled(emailPromises);
+}
+
+export async function sendDeadlineReminder(ticket: any) {
+  if (!process.env.RESEND_API_KEY) return;
+
+  const staffUser = ticket.assigned_to_user;
+
+  if (!staffUser?.email) return;
+
+  await resend.emails.send({
+    from: 'CEiVoice Reminder <support@ceivoice.com>',
+    to: staffUser.email,
+    subject: `Reminder: Ticket #${ticket.id} Due Tomorrow`,
+    react: NotificationEmail({
+      userName: staffUser.full_name || "Team Member",
+      ticketTitle: ticket.title || "Untitled Ticket",
+      deadline: ticket.deadline
+        ? new Date(ticket.deadline).toLocaleDateString('en-GB')
+        : "N/A",
+      ticketUrl: `${APP_URL}/admin/tickets/${ticket.id}`,
+    })
+  });
 }
 
 // ✨ UPDATED: Now accepts 'messageContent'
