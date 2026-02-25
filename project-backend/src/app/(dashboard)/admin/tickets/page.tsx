@@ -1,13 +1,14 @@
 // src/app/(dashboard)/admin/tickets/page.tsx
 
+import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
 import AdminTicketTable from '@/components/AdminTicketTable'; 
 import TicketToolbar from '@/components/TicketToolbar';
 import PaginationControls from '@/components/PaginationControls';
 
-const PAGE_SIZE = 5; // Set limit per page
+const PAGE_SIZE = 5;
 
-// 1. Global Stats (Unaffected by pagination/filters, excludes DRAFTs)
+// Global Stats
 async function getGlobalStats() {
   const { data, error } = await supabaseAdmin.from('tickets').select('status').neq('status', 'DRAFT');
   if (error || !data) return { total: 0, pending: 0, inProgress: 0, solved: 0 };
@@ -19,7 +20,7 @@ async function getGlobalStats() {
   };
 }
 
-// 2. Fetch Filtered & Paginated Tickets
+// Fetch Filtered & Paginated Tickets
 async function getTickets(searchParams: { [key: string]: string | undefined }) {
   const query = searchParams?.q || '';
   const status = searchParams?.status;
@@ -36,15 +37,15 @@ async function getTickets(searchParams: { [key: string]: string | undefined }) {
       id, title, description, status, priority, deadline, created_at,
       assigned_to_user:users!tickets_assigned_to_fkey (full_name),
       created_by_user:users!tickets_created_by_fkey (full_name, email)
-    `, { count: 'exact' }) // 👈 Request exact count for pagination
+    `, { count: 'exact' })
     .neq('status', status === 'MERGED' ? 'IGNORE_THIS_FILTER' : 'MERGED')
     .neq('status', 'DRAFT')
     .order('created_at', { ascending: false })
-    .range(from, to); // 👈 Apply Pagination Limit
+    .range(from, to);
 
   if (status) supabaseQuery = supabaseQuery.eq('status', status);
   if (priority) supabaseQuery = supabaseQuery.eq('priority', priority);
-  
+
   if (query) {
     if (!isNaN(Number(query))) {
       supabaseQuery = supabaseQuery.eq('id', query);
@@ -59,7 +60,7 @@ async function getTickets(searchParams: { [key: string]: string | undefined }) {
     console.error("❌ Admin Query Error:", error.message);
     return { tickets: [], count: 0 };
   }
-  
+
   return { 
     tickets: (data as any[]) || [], 
     count: count || 0 
@@ -70,7 +71,11 @@ export default async function AdminTicketsPage(props: {
   searchParams: Promise<{ [key: string]: string | undefined }>
 }) {
   const params = await props.searchParams;
-  
+
+  // Get userId from cookies
+  const cookieStore = await cookies();
+  const userId = cookieStore.get('user_id')?.value || '';
+
   // Parallel Fetching
   const [{ tickets, count }, stats] = await Promise.all([
     getTickets(params),
@@ -96,10 +101,9 @@ export default async function AdminTicketsPage(props: {
       <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden">
         <div className="p-4">
             <TicketToolbar />
-            <AdminTicketTable initialTickets={tickets} />
+            <AdminTicketTable initialTickets={tickets} userId={userId} />
         </div>
-        
-        {/* 👇 Add Pagination Bar at bottom */}
+
         <PaginationControls totalCount={count} pageSize={PAGE_SIZE} />
       </div>
     </div>

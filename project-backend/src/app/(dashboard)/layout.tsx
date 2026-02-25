@@ -33,7 +33,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex h-screen bg-black text-zinc-100 font-sans selection:bg-purple-500/30 selection:text-purple-200">
-      <Sidebar 
+      <Sidebar
+	userId={user.id}
         userRole={user.role} 
         userInitial={user.initial} 
         userName={user.name} 
