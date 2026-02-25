@@ -1,10 +1,12 @@
+// project-backend/src/components/Sidebar.tsx
+
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase-browser'; 
 
-export default function Sidebar({ userRole, userInitial, userName }: { userRole: string, userInitial: string, userName: string }) {
+export default function Sidebar({ userId, userRole, userInitial, userName }: { userId: string | null, userRole: string, userInitial: string, userName: string }) {
   const pathname = usePathname();
   const isAdmin = userRole === 'ADMIN' || userRole === 'ASSIGNEE';
   const [totalUnread, setTotalUnread] = useState(0);
@@ -12,9 +14,8 @@ export default function Sidebar({ userRole, userInitial, userName }: { userRole:
 
   useEffect(() => {
     const fetchStats = async () => {
-      const { data: { user } } = await supabaseBrowser.auth.getUser();
-      if (!user) return;
-      const { data, error } = await supabaseBrowser.rpc('get_unread_stats', { current_user_id: user.id });
+      if (!userId) return;
+      const { data, error } = await supabaseBrowser.rpc('get_unread_stats', { current_user_id: userId });
       if (data && !error) {
         const total = data.reduce((sum: number, item: any) => sum + (item.unread_count || 0), 0);
         setTotalUnread(total);
@@ -23,7 +24,7 @@ export default function Sidebar({ userRole, userInitial, userName }: { userRole:
     fetchStats();
     const interval = setInterval(fetchStats, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     const fetchDraftCount = async () => {

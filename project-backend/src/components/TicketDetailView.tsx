@@ -166,14 +166,24 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
 
   const isStaff = currentUser.role === 'ADMIN' || currentUser.role === 'ASSIGNEE';
 
-  // Mark ticket as read on mount
+ 
   useEffect(() => {
-    fetch(`/api/tickets/${ticket.id}/read`, {
-      method: 'POST',
-      credentials: 'include',
-    }).then(() => {
-      window.dispatchEvent(new CustomEvent('refresh-unread-counts'));
-    }).catch(() => {});
+    const markAsRead = async () => {
+      if (!ticket.id) return;
+
+      const { error } = await supabaseBrowser.rpc('mark_ticket_read', { 
+        p_ticket_id: Number(ticket.id),
+	p_user_id: currentUser.id
+      });
+
+      if (error) {
+        console.error("Failed to mark ticket as read:", error);
+      } else {
+        window.dispatchEvent(new Event('refresh-unread-stats'));
+      }
+    };
+
+    markAsRead();
   }, [ticket.id]);
 
   useEffect(() => {
@@ -692,7 +702,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                 const diffMs = now.getTime() - created.getTime();
                 const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
                 const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                
+
                 if (diffDays > 0) return `${diffDays}d ${diffHours}h ago`;
                 if (diffHours > 0) return `${diffHours}h ago`;
                 return 'Just now';
@@ -721,10 +731,12 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                 </svg>
                 {(() => {
                   const now = new Date();
-                  const deadline = new Date(ticket.deadline);
-                  const diffMs = deadline.getTime() - now.getTime();
-                  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                  
+		  const deadline = new Date(ticket.deadline);
+		  now.setHours(0, 0, 0, 0);
+	          deadline.setHours(0, 0, 0, 0);
+		  const diffMs = deadline.getTime() - now.getTime();
+		  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
                   if (diffMs < 0) return <span className="text-red-400 font-medium">Overdue</span>;
                   if (diffDays === 0) return <span className="text-amber-400 font-medium">Due today</span>;
                   if (diffDays === 1) return <span className="text-amber-400 font-medium">Due tomorrow</span>;
