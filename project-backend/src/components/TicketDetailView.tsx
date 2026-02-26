@@ -469,7 +469,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
         </div>
       </div>
 
-      {/* RIGHT COLUMN — FIXED: All sections are now siblings */}
+      {/* RIGHT COLUMN */}
       <div className="space-y-6 overflow-y-auto pr-1">
         
         {/* SECTION 1: Ticket Controls */}
