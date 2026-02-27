@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
-import TicketDetailView from '@/components/TicketDetailView';
+import AssigneeTicketView from '@/components/AssigneeTicketView';
 
 async function getData(ticketId: string) {
   const cookieStore = await cookies();
@@ -95,7 +95,7 @@ export default async function AssigneeTicketPage({ params }: { params: { id: str
       </div>
 
       {/* Main view (status + reassign allowed) */}
-      <TicketDetailView
+      <AssigneeTicketView
         ticket={data.ticket}
         comments={data.comments}
         currentUser={data.currentUser}

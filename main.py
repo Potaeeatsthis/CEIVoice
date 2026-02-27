@@ -154,7 +154,6 @@ def generate_smart_title(description: str) -> str:
         if title.endswith('.'):
             title = title[:-1]
 
-
         # In case the model is messed up
         if len(title) > 60:
              title = "The model can not Generate title"+ title[:57] + "..."

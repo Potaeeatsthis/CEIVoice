@@ -165,7 +165,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
     draftDeadline !== (ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '');
 
   const isStaff = currentUser.role === 'ADMIN' || currentUser.role === 'ASSIGNEE';
-
+  const isAdmin = currentUser.role === 'ADMIN';
  
   useEffect(() => {
     const markAsRead = async () => {
@@ -184,7 +184,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
     };
 
     markAsRead();
-  }, [ticket.id]);
+  }, [ticket.id, currentUser.id]);
 
   useEffect(() => {
     setDraftStatus(ticket.status);
@@ -482,11 +482,12 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
           </div>
 
           <div className="space-y-5">
+            {/* Status */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Status</label>
               {isStaff ? (
                 <div className="relative">
-                  <select
+                  <select 
                     value={draftStatus}
                     onChange={(e) => setDraftStatus(e.target.value as TicketStatus)}
                     disabled={isUpdating}
@@ -509,17 +510,18 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               )}
             </div>
 
+            {/* Priority (Merged Icon + Dropdown) */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Priority</label>
               {isStaff ? (
                 <div className="relative group">
                   <div className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 flex items-center justify-between transition-all">
-                    <PriorityDisplay priority={draftPriority} />
-                    <div className="text-zinc-500">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                    </div>
+                     <PriorityDisplay priority={draftPriority} />
+                     <div className="text-zinc-500">
+                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                     </div>
                   </div>
-                  <select
+                  <select 
                     value={draftPriority}
                     onChange={(e) => setDraftPriority(e.target.value as any)}
                     disabled={isUpdating}
@@ -538,11 +540,12 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               )}
             </div>
 
+            {/* Category */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Category</label>
               {isStaff ? (
                 <div className="relative">
-                  <select
+                  <select 
                     value={draftCategory}
                     onChange={(e) => setDraftCategory(e.target.value)}
                     disabled={isUpdating}
@@ -565,11 +568,12 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               )}
             </div>
 
+            {/* Assignee */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Assignee</label>
               {isStaff ? (
                 <div className="relative">
-                  <select
+                  <select 
                     value={draftAssignee}
                     onChange={(e) => setDraftAssignee(e.target.value)}
                     disabled={isUpdating}
@@ -591,6 +595,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               )}
             </div>
 
+            {/* Deadline Picker */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Target Deadline</label>
               {isStaff ? (
@@ -603,9 +608,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                 />
               ) : (
                 <div className="px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-sm text-zinc-300">
-                  {ticket.deadline
-                    ? new Date(ticket.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
-                    : 'No Deadline'}
+                   {ticket.deadline ? new Date(ticket.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-') : 'No Deadline'}
                 </div>
               )}
             </div>
@@ -660,7 +663,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
           </div>
         )}
 
-        {/* SECTION 3: Info */}
+        {/* INFO BOX */}
         <div className="bg-zinc-900/20 border border-zinc-800/60 rounded-xl p-5 space-y-4">
           <h3 className="text-xs font-bold text-zinc-600 uppercase tracking-wider">Ticket Details</h3>
 

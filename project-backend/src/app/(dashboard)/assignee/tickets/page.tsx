@@ -11,16 +11,34 @@ async function getTickets() {
   const { data, error } = await supabaseAdmin
     .from('tickets')
     .select(`
-      *,
+      id,
+      title,
+      description,
+      status,
+      priority,
+      deadline,
+      created_at,
+      assigned_to,
       assigned_to_user:users!tickets_assigned_to_fkey (full_name),
       created_by_user:users!tickets_created_by_fkey (full_name, email)
     `)
-    .eq('assigned_to', userId) // 🔒 ONLY their tickets
+    .eq('assigned_to', userId)
     .order('created_at', { ascending: false });
 
-  if (error) return [];
+  if (error || !data) return [];
 
-  return data || [];
+  // ✅ FLATTEN DATA FOR UI
+  return data.map((ticket) => ({
+    id: ticket.id,
+    title: ticket.title,
+    description: ticket.description,
+    status: ticket.status,
+    priority: ticket.priority,
+    deadline: ticket.deadline,
+
+    // 🔑 THIS IS THE FIX
+    assignee_name: ticket.assigned_to_user?.full_name ?? null,
+  }));
 }
 
 export default async function AssigneeTicketsPage() {

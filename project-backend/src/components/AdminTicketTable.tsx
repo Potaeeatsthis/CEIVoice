@@ -36,6 +36,7 @@ export default function AdminTicketTable({ initialTickets, userId }: { initialTi
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
 
+  // Sync state when filters change
   useEffect(() => {
     setTickets(initialTickets);
     setSelectedIds([]); 

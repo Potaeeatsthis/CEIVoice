@@ -35,9 +35,11 @@ export default function GlobalNotificationListener({ userId }: { userId: string 
           // 3. Trigger Sonner Toast
           // Determine the redirect path based on current role (admin or user)
           const isUserAdmin = pathname?.startsWith('/admin');
-          const targetUrl = isUserAdmin 
-            ? `/admin/tickets/${newComment.ticket_id}` 
-            : `/user/tickets/${newComment.ticket_id}`;
+          const isUserAssignee = pathname?.startsWith('/assignee');
+          
+          let targetUrl = `/user/tickets/${newComment.ticket_id}`;
+          if (isUserAdmin) targetUrl = `/admin/tickets/${newComment.ticket_id}`;
+          if (isUserAssignee) targetUrl = `/assignee/tickets/${newComment.ticket_id}`;
 
           toast(`Ticket #${newComment.ticket_id}`, {
             description: newComment.message || 'New message received',
