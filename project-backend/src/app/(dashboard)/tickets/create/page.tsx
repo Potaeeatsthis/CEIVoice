@@ -1,6 +1,6 @@
 // src/app/(dashboard)/tickets/create/page.tsx
 
-"use client";
+'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -10,22 +10,23 @@ import { supabaseBrowser } from '@/lib/supabase-browser';
 export default function CreateTicketPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
-  const [email, setEmail] = useState('');
-  const [files, setFiles] = useState<File[]>([]);
-  
+  const [contactEmail, setContactEmail] = useState('');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'error' | 'success', text: string } | null>(null);
+
+  const [files, setFiles] = useState<File[]>([]);
 
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabaseBrowser.auth.getUser();
-      if (user?.email && !email) setEmail(user.email);
+      if (user?.email && !contactEmail) setContactEmail(user.email);
     };
     getUser();
-  }, [email]);
+  }, [contactEmail]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -61,13 +62,13 @@ export default function CreateTicketPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!title.trim() || !message.trim() || !email.trim()) {
+    if (!title.trim() || !message.trim() || !contactEmail.trim()) {
       setStatusMsg({ type: 'error', text: 'Please fill in all required fields' });
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(contactEmail)) {
       setStatusMsg({ type: 'error', text: 'Please enter a valid email address' });
       return;
     }
@@ -83,7 +84,7 @@ export default function CreateTicketPage() {
       }
 
       setStatusMsg({ type: 'success', text: "Submitting ticket..." });
-      
+
       const res = await fetch('/api/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -91,7 +92,7 @@ export default function CreateTicketPage() {
         body: JSON.stringify({
           title,
           message,
-          contactEmail: email,
+          contactEmail,
           img: uploadedUrls
         }),
       });
@@ -140,11 +141,8 @@ export default function CreateTicketPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
 
-          {/* Subject */}
           <div className="space-y-2">
-            <label className="text-sm text-zinc-400 font-medium">
-              Subject *
-            </label>
+            <label className="text-sm text-zinc-400 font-medium">Subject *</label>
             <input
               type="text"
               value={title}
@@ -154,25 +152,19 @@ export default function CreateTicketPage() {
             />
           </div>
 
-          {/* Contact Email */}
           <div className="space-y-2">
-            <label className="text-sm text-zinc-400 font-medium">
-              Contact Email *
-            </label>
+            <label className="text-sm text-zinc-400 font-medium">Contact Email *</label>
             <input
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={contactEmail}
+              onChange={(e) => setContactEmail(e.target.value)}
               placeholder="your@email.com"
               className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:ring-2 focus:ring-zinc-500/30 outline-none"
             />
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
-            <label className="text-sm text-zinc-400 font-medium">
-              Description *
-            </label>
+            <label className="text-sm text-zinc-400 font-medium">Description *</label>
             <textarea
               rows={6}
               value={message}
@@ -182,7 +174,6 @@ export default function CreateTicketPage() {
             />
           </div>
 
-          {/* Attachments */}
           <div className="space-y-2">
             <label className="text-sm text-zinc-400 font-medium">Attachments</label>
             
