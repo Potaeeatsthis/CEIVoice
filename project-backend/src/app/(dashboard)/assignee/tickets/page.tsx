@@ -1,13 +1,10 @@
+// src/app/(dashboard)/assignee/tickets/page.tsx
+
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
 import AssigneeTicketTable from '@/components/AssigneeTicketTable';
 
-async function getTickets() {
-  const cookieStore = await cookies();
-  const userId = cookieStore.get('user_id')?.value;
-
-  if (!userId) return [];
-
+async function getTickets(userId: string) {
   const { data, error } = await supabaseAdmin
     .from('tickets')
     .select(`
@@ -27,7 +24,6 @@ async function getTickets() {
 
   if (error || !data) return [];
 
-  // ✅ FLATTEN DATA FOR UI
   return data.map((ticket) => ({
     id: ticket.id,
     title: ticket.title,
@@ -35,14 +31,16 @@ async function getTickets() {
     status: ticket.status,
     priority: ticket.priority,
     deadline: ticket.deadline,
-
-    // 🔑 THIS IS THE FIX
     assignee_name: ticket.assigned_to_user?.full_name ?? null,
   }));
 }
 
 export default async function AssigneeTicketsPage() {
-  const tickets = await getTickets();
+  const cookieStore = await cookies();
+  // ✅ Read userId once here on the server and pass it down as a prop
+  const userId = cookieStore.get('user_id')?.value ?? null;
+
+  const tickets = userId ? await getTickets(userId) : [];
 
   const stats = {
     total: tickets.length,
@@ -69,8 +67,8 @@ export default async function AssigneeTicketsPage() {
         <StatCard label="Failed" value={stats.failed} color="red" />
       </div>
 
-      {/* ✅ Assignee table (not admin) */}
-      <AssigneeTicketTable initialTickets={tickets} />
+      {/* ✅ Pass userId from server so the client doesn't need to re-fetch it */}
+      <AssigneeTicketTable initialTickets={tickets} userId={userId} />
     </div>
   );
 }
@@ -78,21 +76,15 @@ export default async function AssigneeTicketsPage() {
 function StatCard({ label, value, color = "zinc" }: any) {
   const colors: any = {
     zinc: "text-white border-zinc-800 bg-zinc-950/30",
-
-    blue: "text-blue-400 border-blue-900/50 bg-blue-950/10",       // NEW
-    amber: "text-amber-400 border-amber-900/50 bg-amber-950/10",   // IN_PROGRESS
-    emerald: "text-emerald-400 border-emerald-900/50 bg-emerald-950/10", // SOLVED
-    red: "text-red-400 border-red-900/50 bg-red-950/10",           // FAILED
-    purple: "text-purple-400 border-purple-900/50 bg-purple-950/10" // MERGED
+    blue: "text-blue-400 border-blue-900/50 bg-blue-950/10",
+    amber: "text-amber-400 border-amber-900/50 bg-amber-950/10",
+    emerald: "text-emerald-400 border-emerald-900/50 bg-emerald-950/10",
+    red: "text-red-400 border-red-900/50 bg-red-950/10",
+    purple: "text-purple-400 border-purple-900/50 bg-purple-950/10"
   };
 
   return (
-    <div
-      className={`
-        rounded-lg border p-4
-        ${colors[color] || colors.zinc}
-      `}
-    >
+    <div className={`rounded-lg border p-4 ${colors[color] || colors.zinc}`}>
       <p className="text-xs text-zinc-500 mb-1">{label}</p>
       <p className="text-2xl font-semibold">{value}</p>
     </div>
