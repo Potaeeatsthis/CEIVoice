@@ -4,7 +4,6 @@ import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
 import Sidebar from '@/components/Sidebar';
 import GlobalNotificationListener from '@/components/GlobalNotificationListener';
-import { Toaster } from '@/components/SonnerToaster';
 
 async function getUser() {
   const cookieStore = await cookies();
@@ -34,7 +33,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className="flex h-screen bg-black text-zinc-100 font-sans selection:bg-purple-500/30 selection:text-purple-200">
       <Sidebar
-	userId={user.id}
+        userId={user.id}
         userRole={user.role} 
         userInitial={user.initial} 
         userName={user.name} 
@@ -42,11 +41,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       
       <main className="flex-1 overflow-auto bg-black relative">
         <div className="max-w-7xl mx-auto p-8">
-          
           {user.id && <GlobalNotificationListener userId={user.id} />}
-          
-          <Toaster />
-          
           {children}
         </div>
       </main>
