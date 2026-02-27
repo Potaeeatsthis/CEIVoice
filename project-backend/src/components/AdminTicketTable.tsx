@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import PriorityIcon from './PriorityIcon';
 import MergeTicketModal from './MergeTicketModal';
@@ -36,55 +36,68 @@ export default function AdminTicketTable({ initialTickets, userId }: { initialTi
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
 
-  // Sync state when filters change
   useEffect(() => {
     setTickets(initialTickets);
-    setSelectedIds([]); 
+    setSelectedIds([]);
   }, [initialTickets]);
 
-  // Fetch unread stats
-  useEffect(() => {
-    const fetchUnread = async () => {
-      if (!userId) return;
+  const fetchUnread = useCallback(async () => {
+    if (!userId) return;
+    const { data, error } = await supabaseBrowser.rpc('get_unread_stats', { current_user_id: userId });
+    if (data && !error) {
+      const counts: Record<number, number> = {};
+      data.forEach((item: any) => {
+        counts[Number(item.ticket_id)] = Number(item.unread_count);
+      });
+      setUnreadCounts(counts);
+    }
+  }, [userId]);
 
-      const { data, error } = await supabaseBrowser.rpc('get_unread_stats', { current_user_id: userId });
-      
-      if (data && !error) {
-        const counts: Record<number, number> = {};
-        data.forEach((item: any) => {
-          counts[Number(item.ticket_id)] = Number(item.unread_count);
-        });
-        setUnreadCounts(counts);
-      }
-    };
+  useEffect(() => {
+    if (!userId) return;
 
     fetchUnread();
 
-    const interval = setInterval(fetchUnread, 30000); 
-    const handleRefresh = () => fetchUnread();
-    window.addEventListener('refresh-unread-stats', handleRefresh);
+    // Poll every 15s as base fallback
+    const interval = setInterval(fetchUnread, 15000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchUnread();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    // Manual refresh trigger
+    window.addEventListener('refresh-unread-stats', fetchUnread);
+
+    const channel = supabaseBrowser
+      .channel('admin-unread-watch')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, () => fetchUnread())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_reads' }, () => fetchUnread())
+      .subscribe((status) => {
+        console.log('📡 Admin realtime status:', status);
+      });
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener('refresh-unread-stats', handleRefresh);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('refresh-unread-stats', fetchUnread);
+      supabaseBrowser.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, fetchUnread]);
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
-
     const sortedData = [...tickets].sort((a: any, b: any) => {
       let aValue = a[key];
       let bValue = b[key];
       if (key === 'assignee') { aValue = a.assigned_to_user?.full_name || ''; bValue = b.assigned_to_user?.full_name || ''; }
-      if (key === 'priority') { return (priorityRank[a.priority] - priorityRank[b.priority]) * (direction === 'asc' ? 1 : -1); }
+      if (key === 'priority') return (priorityRank[a.priority] - priorityRank[b.priority]) * (direction === 'asc' ? 1 : -1);
       if (key === 'deadline') { if (!aValue) return 1; if (!bValue) return -1; }
       if (aValue < bValue) return direction === 'asc' ? -1 : 1;
       if (aValue > bValue) return direction === 'asc' ? 1 : -1;
       return 0;
     });
-
     setTickets(sortedData);
     setSortConfig({ key, direction });
   };
@@ -106,7 +119,6 @@ export default function AdminTicketTable({ initialTickets, userId }: { initialTi
 
   return (
     <div className="relative">
-
       <div className="rounded-md border border-zinc-800 bg-zinc-950/40 backdrop-blur-sm overflow-x-auto">
         <table className="w-full text-left text-sm min-w-[1000px]">
           <thead>
@@ -114,31 +126,24 @@ export default function AdminTicketTable({ initialTickets, userId }: { initialTi
               <th className="px-6 py-3 w-12 text-left">
                 <input type="checkbox" className="rounded border-zinc-700 bg-zinc-800 text-emerald-500 focus:ring-0 cursor-pointer" checked={tickets.length > 0 && selectedIds.length === tickets.length} onChange={toggleSelectAll} />
               </th>
-
               <th className="px-6 py-3 w-20 cursor-pointer hover:text-white group text-left whitespace-nowrap" onClick={() => handleSort('id')}>
                 <div className="flex items-center gap-1.5">ID {getSortIcon('id')}</div>
               </th>
-
               <th className="px-6 py-3 cursor-pointer hover:text-white group text-left" onClick={() => handleSort('title')}>
                 <div className="flex items-center gap-1.5">Subject {getSortIcon('title')}</div>
               </th>
-
               <th className="px-6 py-3 w-32 cursor-pointer hover:text-white group text-left whitespace-nowrap" onClick={() => handleSort('status')}>
                 <div className="flex items-center gap-1.5">Status {getSortIcon('status')}</div>
               </th>
-
               <th className="px-6 py-3 w-32 cursor-pointer hover:text-white group text-left whitespace-nowrap" onClick={() => handleSort('priority')}>
                 <div className="flex items-center gap-1.5">Priority {getSortIcon('priority')}</div>
               </th>
-
               <th className="px-6 py-3 w-36 cursor-pointer hover:text-white group text-left whitespace-nowrap" onClick={() => handleSort('deadline')}>
                 <div className="flex items-center gap-1.5">Deadline {getSortIcon('deadline')}</div>
               </th>
-
               <th className="px-6 py-3 w-40 cursor-pointer hover:text-white group text-left whitespace-nowrap" onClick={() => handleSort('assignee')}>
                 <div className="flex items-center gap-1.5">Assignee {getSortIcon('assignee')}</div>
               </th>
-
               <th className="px-6 py-3 w-24 text-right whitespace-nowrap">Action</th>
             </tr>
           </thead>
@@ -146,10 +151,9 @@ export default function AdminTicketTable({ initialTickets, userId }: { initialTi
             {tickets.map((ticket) => (
               <tr key={ticket.id} className={`group transition-colors ${selectedIds.includes(ticket.id) ? 'bg-emerald-950/10' : 'hover:bg-zinc-900/30'}`}>
                 <td className="px-6 py-4">
-                  <input type="checkbox" className="rounded border-zinc-700 bg-zinc-800 text-emerald-500 focus:ring-0 cursor-pointer" checked={selectedIds.includes(ticket.id)} onChange={() => toggleSelect(ticket.id)}/>
+                  <input type="checkbox" className="rounded border-zinc-700 bg-zinc-800 text-emerald-500 focus:ring-0 cursor-pointer" checked={selectedIds.includes(ticket.id)} onChange={() => toggleSelect(ticket.id)} />
                 </td>
                 <td className="px-6 py-4 text-zinc-500 font-mono whitespace-nowrap">#{ticket.id}</td>
-
                 <td className="px-6 py-4 w-full max-w-0">
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
@@ -166,7 +170,6 @@ export default function AdminTicketTable({ initialTickets, userId }: { initialTi
                     <span className="text-xs text-zinc-500 truncate block mt-0.5">{ticket.description}</span>
                   </div>
                 </td>
-
                 <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={ticket.status} /></td>
                 <td className="px-6 py-4 whitespace-nowrap"><div className="flex items-center"><PriorityIcon priority={ticket.priority} /></div></td>
                 <td className="px-6 py-4 text-zinc-400 whitespace-nowrap">{ticket.deadline ? <span className="text-zinc-300 font-mono text-xs">{formatDate(ticket.deadline)}</span> : '-'}</td>
@@ -187,11 +190,11 @@ export default function AdminTicketTable({ initialTickets, userId }: { initialTi
           </div>
           <div className="h-4 w-px bg-zinc-700"></div>
           <button onClick={() => setIsMergeModalOpen(true)} disabled={selectedIds.length < 2} className="text-sm font-medium text-zinc-200 hover:text-white hover:underline disabled:opacity-50 disabled:no-underline flex items-center gap-2">
-             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-             Merge Selected
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+            Merge Selected
           </button>
           <button onClick={() => setSelectedIds([])} className="text-zinc-500 hover:text-zinc-300">
-             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
       )}
