@@ -22,24 +22,40 @@ export async function middleware(request: NextRequest) {
   if (request.method === 'OPTIONS') {
     return NextResponse.json({}, { headers: corsHeaders });
   }
-  
-  if (
-    (path.startsWith('/tickets') || path.startsWith('/assignee')) &&
-    userRole === 'ADMIN'
-  ) {
-    return NextResponse.redirect(new URL('/admin/tickets', request.url));
-  }
 
   // -------------------------
-  // ASSIGNEE restrictions
+  // 1. AUTH PAGE restrictions
   // -------------------------
-  // Assignee cannot access admin area ONLY
+  if (path === '/login' || path === '/register') {
+    const hasToken = request.cookies.get('token')?.value;
+    if (hasToken) {
+      if (userRole === 'ADMIN') return NextResponse.redirect(new URL('/admin/tickets', request.url));
+      if (userRole === 'ASSIGNEE') return NextResponse.redirect(new URL('/assignee/tickets', request.url));
+      return NextResponse.redirect(new URL('/tickets', request.url));
+    }
+  }
+  
+  // -------------------------
+  // 2. STAFF restrictions (ADMIN & ASSIGNEE)
+  // -------------------------
+  // 1. Instantly route staff to their dashboards when they login
+  // 2. Prevent staff from creating tickets or viewing personal user pages
+  if (path.startsWith('/tickets')) {
+    if (userRole === 'ADMIN') {
+      return NextResponse.redirect(new URL('/admin/tickets', request.url));
+    }
+    if (userRole === 'ASSIGNEE') {
+      return NextResponse.redirect(new URL('/assignee/tickets', request.url));
+    }
+  }
+
+  // Assignee cannot access the admin area
   if (path.startsWith('/admin') && userRole === 'ASSIGNEE') {
     return NextResponse.redirect(new URL('/assignee/tickets', request.url));
   }
 
   // -------------------------
-  // USER restrictions
+  // 3. USER restrictions
   // -------------------------
   // Normal users cannot access staff dashboards
   if (
@@ -115,5 +131,7 @@ export const config = {
     '/admin/:path*',
     '/assignee/:path*',
     '/tickets/:path*',
+//    '/login',
+    '/register'
   ],
 };
