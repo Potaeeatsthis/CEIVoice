@@ -98,7 +98,7 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {isAdmin && <AdminMenu pathname={pathname} totalUnread={totalUnread} draftCount={draftCount} />}
         {isAssignee && <AssigneeMenu pathname={pathname} totalUnread={totalUnread} />}
-        {!isAdmin && !isAssignee && <PersonalMenu pathname={pathname} totalUnread={(!isAssignee) ? totalUnread : undefined} />}
+        {!isAdmin && <PersonalMenu pathname={pathname} totalUnread={(!isAssignee) ? totalUnread : undefined} />}
       </nav>
 
       <div className="p-4 border-t border-zinc-800 bg-zinc-900/30">

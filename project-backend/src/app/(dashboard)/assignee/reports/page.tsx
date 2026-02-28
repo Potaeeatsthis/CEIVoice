@@ -135,7 +135,7 @@ export default async function AssigneeReportsPage(props: {
         <div className="relative bg-zinc-950/60 border border-zinc-800 rounded-2xl p-5 overflow-hidden hover:border-zinc-700 transition-colors">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
           <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Active Now</p>
-          <p className="text-5xl font-black text-white mt-2 mb-4 tabular-nums">{currentlyAssigned.length}</p>
+          <p className="text-3xl font-black text-white mt-2 mb-4 tabular-nums">{currentlyAssigned.length}</p>
           <div className="flex gap-2 flex-wrap">
             <span className="text-[11px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-1 rounded-lg">{newCount} New</span>
             <span className="text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-1 rounded-lg">{inProgressCount} In Progress</span>
@@ -146,7 +146,7 @@ export default async function AssigneeReportsPage(props: {
         <div className="relative bg-zinc-950/60 border border-zinc-800 rounded-2xl p-5 overflow-hidden hover:border-zinc-700 transition-colors">
           <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-transparent pointer-events-none" />
           <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Closed ({days}d)</p>
-          <p className="text-5xl font-black text-white mt-2 mb-4 tabular-nums">{resolvedInPeriod}</p>
+          <p className="text-3xl font-black text-white mt-2 mb-4 tabular-nums">{resolvedInPeriod}</p>
           <div className="flex gap-2 flex-wrap">
             <span className="text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-1 rounded-lg">{solvedInPeriod} Solved</span>
             <span className="text-[11px] font-semibold bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-1 rounded-lg">{failedInPeriod} Failed</span>
@@ -157,7 +157,7 @@ export default async function AssigneeReportsPage(props: {
         <div className="relative bg-zinc-950/60 border border-zinc-800 rounded-2xl p-5 overflow-hidden hover:border-zinc-700 transition-colors">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent pointer-events-none" />
           <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Success Rate</p>
-          <p className="text-5xl font-black text-emerald-400 mt-2 mb-3 tabular-nums">{completionRate}%</p>
+          <p className="text-3xl font-black text-emerald-400 mt-2 mb-3 tabular-nums">{completionRate}%</p>
           <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-2">
             <div className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full" style={{ width: `${completionRate}%` }} />
           </div>
@@ -168,7 +168,7 @@ export default async function AssigneeReportsPage(props: {
         <div className="relative bg-zinc-950/60 border border-zinc-800 rounded-2xl p-5 overflow-hidden hover:border-zinc-700 transition-colors">
           <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent pointer-events-none" />
           <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Avg Resolution</p>
-          <p className="text-5xl font-black text-white mt-2 mb-4 tabular-nums leading-none">{avgResolutionTime}</p>
+          <p className="text-3xl font-black text-white mt-2 mb-4 tabular-nums leading-none">{avgResolutionTime}</p>
           <p className="text-[11px] text-zinc-500">{avgResolutionSub}</p>
         </div>
 

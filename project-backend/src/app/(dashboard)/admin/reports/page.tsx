@@ -101,14 +101,14 @@ export default function AdminReportsPage() {
           <div className="relative bg-zinc-950/60 border border-zinc-800 rounded-2xl p-5 overflow-hidden hover:border-zinc-700 transition-colors print:bg-zinc-50 print:border-zinc-200 break-inside-avoid">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
             <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest print:text-zinc-500">Total Volume</p>
-            <p className="text-5xl font-black text-white mt-2 mb-1 tabular-nums print:text-black">{data.total_volume}</p>
+            <p className="text-3xl font-black text-white mt-2 mb-1 tabular-nums print:text-black">{data.total_volume}</p>
             <p className="text-[11px] text-zinc-600">Tickets created in period</p>
           </div>
 
           <div className="relative bg-zinc-950/60 border border-zinc-800 rounded-2xl p-5 overflow-hidden hover:border-zinc-700 transition-colors print:bg-zinc-50 print:border-zinc-200 break-inside-avoid">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent pointer-events-none" />
             <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest print:text-zinc-500">Avg Resolution</p>
-            <p className="text-5xl font-black text-emerald-400 mt-2 mb-1 tabular-nums print:text-emerald-600">
+            <p className="text-3xl font-black text-emerald-400 mt-2 mb-1 tabular-nums print:text-emerald-600">
               {data.avg_resolution_hrs}<span className="ml-2">hrs</span>
             </p>
             <p className="text-[11px] text-zinc-600">Time from New to Solved</p>
@@ -117,7 +117,7 @@ export default function AdminReportsPage() {
           <div className="relative bg-zinc-950/60 border border-zinc-800 rounded-2xl p-5 overflow-hidden hover:border-zinc-700 transition-colors print:bg-zinc-50 print:border-zinc-200 break-inside-avoid">
             <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent pointer-events-none" />
             <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest print:text-zinc-500">Pending Backlog</p>
-            <p className="text-5xl font-black text-amber-400 mt-2 mb-1 tabular-nums print:text-amber-600">{data.pending_backlog}</p>
+            <p className="text-3xl font-black text-amber-400 mt-2 mb-1 tabular-nums print:text-amber-600">{data.pending_backlog}</p>
             <p className="text-[11px] text-zinc-600">New & In Progress tickets</p>
           </div>
 
