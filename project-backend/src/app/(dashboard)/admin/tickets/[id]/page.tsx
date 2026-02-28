@@ -12,12 +12,26 @@ async function getData(ticketId: string) {
   const userId = cookieStore.get('user_id')?.value;
   const userRole = cookieStore.get('user_role')?.value || 'USER';
 
-  // 0. Security Check
+
   if (userRole !== 'ADMIN' && userRole !== 'ASSIGNEE') {
     return { authorized: false };
   }
 
-  // 1. Fetch the Main Ticket
+  // 🛑 AUTO FAIL CHECK
+  const now = new Date().toISOString();
+  console.log("NOW:", now);
+
+  await supabaseAdmin
+    .from('tickets')
+    .update({
+      status: 'FAILED',
+      failed_at: now
+    })
+    .eq('id', ticketId)
+    .lt('deadline', now)
+    .not('deadline', 'is', null)
+    .in('status', ['NEW', 'IN_PROGRESS']);
+
   const { data: ticket, error } = await supabaseAdmin
     .from('tickets')
     .select(`
@@ -30,21 +44,17 @@ async function getData(ticketId: string) {
 
   if (error || !ticket) return null;
 
-  // 2. Fetch Comments
   const { data: comments } = await supabaseAdmin
     .from('comments')
     .select('*, user:users(full_name)')
     .eq('ticket_id', ticketId)
     .order('created_at', { ascending: true });
 
-  // 3. Fetch Staff (For dropdowns)
   const { data: staffUsers } = await supabaseAdmin
     .from('users')
     .select('id, full_name, role')
     .neq('role', 'USER');
 
-  // ✨ 4. NEW: Fetch Linked Tickets (Children)
-  // This looks for any tickets that have THIS ticket as their parent
   const { data: linkedTickets } = await supabaseAdmin
     .from('tickets')
     .select('id, title, status, created_by_user:users!tickets_created_by_fkey(email)')

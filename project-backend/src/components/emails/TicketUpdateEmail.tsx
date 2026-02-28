@@ -17,6 +17,7 @@ type TicketUpdateEmailProps = {
   recipientName: string;
   type:
     | 'SOLVED'
+    | 'FAILED'
     | 'MERGED'
     | 'DEADLINE'
     | 'ASSIGNED'
@@ -37,6 +38,7 @@ export default function TicketUpdateEmail({
 }: TicketUpdateEmailProps) {
   const previews: Record<string, string> = {
     SOLVED: 'Your ticket has been solved',
+    FAILED: 'Your ticket has been marked as failed',
     MERGED: 'Your ticket has been merged',
     DEADLINE: 'Ticket deadline updated',
     ASSIGNED: 'Your ticket has been assigned',
@@ -46,6 +48,7 @@ export default function TicketUpdateEmail({
 
   const headings: Record<string, string> = {
     SOLVED: 'Ticket Solved ✅',
+    FAILED: 'Ticket Marked as Failed ❌',
     MERGED: 'Ticket Merged 🔀',
     DEADLINE: 'Deadline Updated ⏰',
     ASSIGNED: 'Ticket Assigned 👤',
@@ -55,6 +58,7 @@ export default function TicketUpdateEmail({
 
   const descriptions: Record<string, string> = {
     SOLVED: `${actorName} marked this ticket as solved.`,
+    FAILED: `${actorName} marked this ticket as failed.`,
     MERGED: `${actorName} merged this ticket.`,
     DEADLINE: `The deadline has been updated to ${newValue}.`,
     ASSIGNED: `Your ticket has been assigned to ${newValue}.`,

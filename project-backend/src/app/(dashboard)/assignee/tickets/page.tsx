@@ -20,6 +20,7 @@ async function getTickets(userId: string) {
       created_by_user:users!tickets_created_by_fkey (full_name, email)
     `)
     .eq('assigned_to', userId)
+    .in('status', ['NEW', 'IN_PROGRESS', 'SOLVED', 'FAILED'])
     .order('created_at', { ascending: false });
 
   if (error || !data) return [];

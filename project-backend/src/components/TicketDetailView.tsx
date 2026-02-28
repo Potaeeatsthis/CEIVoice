@@ -16,7 +16,8 @@ type User = {
 type Comment = {
   id: string;
   user_id: string;
-  message: string;
+  message?: string;
+  content?: string;
   created_at: string;
   is_internal: boolean;
   attachments?: string[];
@@ -39,6 +40,8 @@ type Ticket = {
   assigned_to: string | null;
   img?: string[];
   created_by_user: { full_name: string; email: string };
+  ai_solution?: string | null;
+  failure_reason?: string | null;
 };
 
 type LinkedTicket = {
@@ -148,6 +151,12 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   const [ticketToUnlink, setTicketToUnlink] = useState<string | null>(null);
   const [isUnlinking, setIsUnlinking] = useState(false);
 
+  // SOLVED / FAILED Modals (From origin/private/in)
+  const [showSolvedModal, setShowSolvedModal] = useState(false);
+  const [showFailedModal, setShowFailedModal] = useState(false);
+  const [resolutionText, setResolutionText] = useState('');
+  const [failureReason, setFailureReason] = useState('');
+
   // Form States
   const [draftStatus, setDraftStatus] = useState<TicketStatus>(ticket.status);
   const [draftPriority, setDraftPriority] = useState(ticket.priority);
@@ -166,25 +175,27 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
 
   const isStaff = currentUser.role === 'ADMIN' || currentUser.role === 'ASSIGNEE';
   const isAdmin = currentUser.role === 'ADMIN';
- 
+
+  const isLocked = ticket.status === 'SOLVED' || (ticket.status === 'FAILED' && !!ticket.failure_reason);
+
   useEffect(() => {
     const markAsRead = async () => {
       if (!ticket.id) return;
-
       const { error } = await supabaseBrowser.rpc('mark_ticket_read', { 
         p_ticket_id: Number(ticket.id),
-	p_user_id: currentUser.id
+        p_user_id: currentUser.id
       });
-
       if (error) {
         console.error("Failed to mark ticket as read:", error);
       } else {
-        window.dispatchEvent(new Event('refresh-unread-stats'));
+        setTimeout(() => {
+          window.dispatchEvent(new Event('refresh-unread-stats'));
+          router.refresh(); 
+        }, 300);
       }
     };
-
     markAsRead();
-  }, [ticket.id, currentUser.id]);
+  }, [ticket.id, currentUser.id, router]);
 
   useEffect(() => {
     setDraftStatus(ticket.status);
@@ -197,6 +208,12 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [comments]);
+
+  useEffect(() => {
+    if (ticket.status === 'FAILED' && !ticket.failure_reason && isStaff) {
+      setShowFailedModal(true);
+    }
+  }, [ticket.status, ticket.failure_reason, isStaff]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -291,6 +308,39 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
     }
   };
 
+  const confirmSolved = async () => {
+    if (!resolutionText.trim()) { alert('Please enter final resolution'); return; }
+    setIsUpdating(true);
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'SOLVED', ai_solution: resolutionText }),
+      });
+      if (!res.ok) { const data = await res.json(); throw new Error(data.error || 'Failed to update ticket'); }
+      setShowSolvedModal(false);
+      setResolutionText('');
+      router.refresh();
+    } catch (error: any) { alert(error.message); } finally { setIsUpdating(false); }
+  };
+
+  const confirmFailedStatus = async () => {
+    if (!failureReason.trim()) { alert('Please enter failure reason'); return; }
+    setIsUpdating(true);
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'FAILED', failure_reason: failureReason }),
+      });
+      if (!res.ok) { const data = await res.json(); throw new Error(data.error || 'Failed to update ticket'); }
+      setShowFailedModal(false);
+      setFailureReason('');
+      setDraftStatus('FAILED');
+      router.refresh();
+    } catch (error: any) { alert(error.message); } finally { setIsUpdating(false); }
+  };
+
   const promptUnlink = (childId: string) => {
     setTicketToUnlink(childId);
     setUnlinkModalOpen(true);
@@ -379,7 +429,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                     {isInternalNote && <span className="text-[9px] font-bold uppercase tracking-wide text-amber-500 border border-amber-900/50 bg-amber-950/30 px-1.5 rounded">Internal</span>}
                   </div>
                   <div className={`px-4 py-2.5 shadow-sm text-sm whitespace-pre-wrap break-words border ${isInternalNote ? 'bg-amber-950/10 border-amber-900/40 text-amber-100 rounded-2xl' : isMe ? 'bg-zinc-900 border-zinc-800 text-zinc-300 rounded-2xl rounded-tr-none' : 'bg-zinc-700 border-zinc-600 text-white rounded-2xl rounded-tl-none'}`}>
-                    {comment.message}
+                    {comment.content || comment.message}
                     {comment.attachments && comment.attachments.map((url, idx) => (
                       <AttachmentPreview key={idx} url={url} />
                     ))}
@@ -388,6 +438,45 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               </div>
             );
           })}
+          
+          {/* FINAL RESOLUTION OR FAILURE REASON DISPLAY */}
+          {ticket.status === 'SOLVED' && ticket.ai_solution && (
+            <div className="flex gap-3 flex-row-reverse">
+              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 flex items-center justify-center text-xs font-bold">
+                {allUsers.find(u => u.id === ticket.assigned_to)?.full_name?.charAt(0) || 'A'}
+              </div>
+              <div className="flex flex-col max-w-[75%] items-end">
+                <div className="flex items-center gap-2 mb-1 px-1">
+                  <span className="text-xs font-medium text-zinc-400">
+                    {allUsers.find(u => u.id === ticket.assigned_to)?.full_name || 'Assignee'}
+                  </span>
+                  <span className="text-[10px] text-zinc-600">Final Resolution</span>
+                </div>
+                <div className="px-4 py-2.5 bg-emerald-900/30 border border-emerald-700 text-emerald-200 rounded-2xl rounded-tr-none text-sm whitespace-pre-wrap">
+                  {ticket.ai_solution}
+                </div>
+              </div>
+            </div>
+          )}
+          {ticket.status === 'FAILED' && ticket.failure_reason && (
+            <div className="flex gap-3 flex-row-reverse">
+              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 flex items-center justify-center text-xs font-bold">
+                {allUsers.find(u => u.id === ticket.assigned_to)?.full_name?.charAt(0) || 'A'}
+              </div>
+              <div className="flex flex-col max-w-[75%] items-end">
+                <div className="flex items-center gap-2 mb-1 px-1">
+                  <span className="text-xs font-medium text-zinc-400">
+                    {allUsers.find(u => u.id === ticket.assigned_to)?.full_name || 'Assignee'}
+                  </span>
+                  <span className="text-[10px] text-red-500 font-bold uppercase tracking-wide">Failure Reason</span>
+                </div>
+                <div className="px-4 py-2.5 bg-red-900/30 border border-red-700 text-red-200 rounded-2xl rounded-tr-none text-sm whitespace-pre-wrap">
+                  {ticket.failure_reason}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div ref={bottomRef} />
         </div>
 
@@ -427,12 +516,13 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
 
             <div className="relative flex-1">
               <textarea
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-xl pl-4 pr-12 py-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-500/50 focus:border-zinc-500 resize-none"
+                className="w-full bg-zinc-950 border border-zinc-700 rounded-xl pl-4 pr-12 py-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-500/50 focus:border-zinc-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                 rows={1}
                 style={{ minHeight: '46px' }}
                 placeholder="Type your message..."
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
+                disabled={isLocked}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -442,7 +532,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               />
               <button
                 type="submit"
-                disabled={isSending || (!commentText.trim() && attachments.length === 0)}
+                disabled={isSending || (!commentText.trim() && attachments.length === 0) || isLocked}
                 className="absolute right-2 bottom-2 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
               >
                 {isSending || uploadingFile ? (
@@ -489,15 +579,20 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                 <div className="relative">
                   <select 
                     value={draftStatus}
-                    onChange={(e) => setDraftStatus(e.target.value as TicketStatus)}
-                    disabled={isUpdating}
-                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all appearance-none pr-8 cursor-pointer"
+                    onChange={(e) => {
+                      const value = e.target.value as TicketStatus;
+                      if (value === 'SOLVED') { setShowSolvedModal(true); return; }
+                      if (value === 'FAILED') { setShowFailedModal(true); return; }
+                      setDraftStatus(value);
+                    }}
+                    disabled={isUpdating || isLocked}
+                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all appearance-none pr-8 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="NEW">New</option>
                     <option value="IN_PROGRESS">In Progress</option>
                     <option value="SOLVED">Solved</option>
                     <option value="FAILED">Failed</option>
-                    <option value="MERGED">Merged</option>
+                    {isAdmin && <option value="MERGED">Merged</option>}
                   </select>
                   <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
@@ -510,7 +605,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               )}
             </div>
 
-            {/* Priority (Merged Icon + Dropdown) */}
+            {/* Priority */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Priority</label>
               {isStaff ? (
@@ -524,7 +619,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                   <select 
                     value={draftPriority}
                     onChange={(e) => setDraftPriority(e.target.value as any)}
-                    disabled={isUpdating}
+                    disabled={isUpdating || isLocked}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                   >
                     <option value="LOW">Low</option>
@@ -543,13 +638,13 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             {/* Category */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-400">Category</label>
-              {isStaff ? (
+              {isAdmin ? (
                 <div className="relative">
                   <select 
                     value={draftCategory}
                     onChange={(e) => setDraftCategory(e.target.value)}
-                    disabled={isUpdating}
-                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all appearance-none pr-8 cursor-pointer"
+                    disabled={isUpdating || isLocked}
+                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all appearance-none pr-8 cursor-pointer disabled:cursor-not-allowed"
                   >
                     <option value="General">General Inquiry</option>
                     <option value="Network">Network & Connectivity</option>
@@ -576,8 +671,8 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                   <select 
                     value={draftAssignee}
                     onChange={(e) => setDraftAssignee(e.target.value)}
-                    disabled={isUpdating}
-                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all appearance-none pr-8 cursor-pointer"
+                    disabled={isUpdating || isLocked}
+                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all appearance-none pr-8 cursor-pointer disabled:cursor-not-allowed"
                   >
                     <option value="">-- Unassigned --</option>
                     {allUsers.map((u) => (
@@ -603,8 +698,8 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                   type="date"
                   value={draftDeadline}
                   onChange={(e) => setDraftDeadline(e.target.value)}
-                  disabled={isUpdating}
-                  className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all [color-scheme:dark]"
+                  disabled={isUpdating || isLocked}
+                  className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all [color-scheme:dark] disabled:cursor-not-allowed"
                 />
               ) : (
                 <div className="px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-sm text-zinc-300">
@@ -616,7 +711,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             {isStaff && hasChanges && (
               <button
                 onClick={handleSaveChanges}
-                disabled={isUpdating}
+                disabled={isUpdating || isLocked}
                 className="w-full mt-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200"
               >
                 {isUpdating ? (
@@ -693,26 +788,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             </div>
           </div>
 
-          <div>
-            <span className="block text-[10px] uppercase text-zinc-500 mb-1">Ticket Age</span>
-            <div className="text-sm text-zinc-300 flex items-center gap-2">
-              <svg className="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {(() => {
-                const now = new Date();
-                const created = new Date(ticket.created_at);
-                const diffMs = now.getTime() - created.getTime();
-                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
-                if (diffDays > 0) return `${diffDays}d ${diffHours}h ago`;
-                if (diffHours > 0) return `${diffHours}h ago`;
-                return 'Just now';
-              })()}
-            </div>
-          </div>
-
           {ticket.img && ticket.img.length > 0 && (
             <div>
               <span className="block text-[10px] uppercase text-zinc-500 mb-1">Attachments</span>
@@ -734,11 +809,11 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                 </svg>
                 {(() => {
                   const now = new Date();
-		  const deadline = new Date(ticket.deadline);
-		  now.setHours(0, 0, 0, 0);
-	          deadline.setHours(0, 0, 0, 0);
-		  const diffMs = deadline.getTime() - now.getTime();
-		  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+                  const deadline = new Date(ticket.deadline);
+                  now.setHours(0, 0, 0, 0);
+                  deadline.setHours(0, 0, 0, 0);
+                  const diffMs = deadline.getTime() - now.getTime();
+                  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
 
                   if (diffMs < 0) return <span className="text-red-400 font-medium">Overdue</span>;
                   if (diffDays === 0) return <span className="text-amber-400 font-medium">Due today</span>;
@@ -807,6 +882,55 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                 {isUnlinking ? (
                   <span className="animate-spin h-4 w-4 border-2 border-red-500/30 border-t-red-500 rounded-full" />
                 ) : 'Unlink'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Solved Modal */}
+      {showSolvedModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 p-6 space-y-4">
+            <h3 className="text-lg font-bold text-white">Final Resolution</h3>
+            <textarea
+              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              rows={6}
+              placeholder="Describe the final solution..."
+              value={resolutionText}
+              onChange={(e) => setResolutionText(e.target.value)}
+            />
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setShowSolvedModal(false)} className="px-4 py-2 text-zinc-400 hover:text-white transition-colors">Cancel</button>
+              <button onClick={confirmSolved} disabled={isUpdating || !resolutionText.trim()} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center gap-2 disabled:opacity-50">
+                {isUpdating && <span className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full"></span>}
+                Confirm Solved
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Failed Modal */}
+      {showFailedModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 p-6 space-y-4">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              Reason Required
+            </h3>
+            <textarea
+              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              rows={6}
+              placeholder="Enter reason for marking this ticket as failed..."
+              value={failureReason}
+              onChange={(e) => setFailureReason(e.target.value)}
+            />
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setShowFailedModal(false)} className="px-4 py-2 text-zinc-400 hover:text-white transition-colors">Cancel</button>
+              <button onClick={confirmFailedStatus} disabled={isUpdating || !failureReason.trim()} className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg flex items-center gap-2 disabled:opacity-50">
+                {isUpdating && <span className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full"></span>}
+                Confirm Failure
               </button>
             </div>
           </div>
