@@ -89,8 +89,8 @@ export default function AdminReportsPage() {
               className="bg-zinc-900 border border-zinc-800 hover:border-zinc-600 rounded-xl px-4 py-2 text-sm text-white outline-none transition-all cursor-pointer"
             >
               <option value={7}>Last 7 Days</option>
+              <option value={15}>Last 15 Days</option>
               <option value={30}>Last 30 Days</option>
-              <option value={90}>Last 90 Days</option>
             </select>
           </div>
         </div>
