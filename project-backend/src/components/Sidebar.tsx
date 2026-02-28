@@ -2,6 +2,7 @@
 
 'use client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { supabaseBrowser } from '@/lib/supabase-browser';
@@ -57,9 +58,7 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_reads' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => fetchDraftCount())
-      .subscribe((status) => {
-        console.log('📡 Sidebar realtime status:', status);
-      });
+      .subscribe();
 
     return () => {
       clearInterval(statsInterval);
@@ -77,11 +76,23 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
 
   return (
     <aside className="w-64 flex flex-col border-r border-zinc-800 bg-zinc-950/50 h-full">
-      <div className="p-6 border-b border-zinc-800">
-        <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-          <div className="h-6 w-6 bg-white rounded-full"></div>
-          CEIVoice
-        </h1>
+      <div className="px-4 py-4 border-b border-zinc-800">
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="flex-shrink-0 rounded-xl overflow-hidden p-2 shadow-lg shadow-black/40">
+            <Image
+              src="/logo_cei.png"
+              alt="CEI Logo"
+              width={52}
+              height={52}
+              className="object-contain"
+              priority
+            />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-base font-bold text-white tracking-tight leading-tight">CEIVoice</span>
+            <span className="text-xs text-zinc-500 tracking-wide">Help Desk Portal</span>
+          </div>
+        </Link>
       </div>
 
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
