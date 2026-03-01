@@ -178,6 +178,8 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
 
   const isLocked = ticket.status === 'SOLVED' || (ticket.status === 'FAILED' && !!ticket.failure_reason);
 
+  const isAssignee = ticket.assigned_to === currentUser.id;
+
   useEffect(() => {
     const markAsRead = async () => {
       if (!ticket.id) return;
@@ -210,10 +212,20 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   }, [comments]);
 
   useEffect(() => {
-    if (ticket.status === 'FAILED' && !ticket.failure_reason && isStaff) {
+    if (
+      ticket.status === 'FAILED' &&
+      !ticket.failure_reason &&
+      isAssignee
+    ) {
       setShowFailedModal(true);
     }
-  }, [ticket.status, ticket.failure_reason, isStaff]);
+  }, [ticket.status, ticket.failure_reason, isAssignee]);
+
+  useEffect(() => {
+    if (showSolvedModal) {
+      setResolutionText(ticket.ai_solution || '');
+    }
+  }, [showSolvedModal, ticket.ai_solution]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -563,6 +575,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
       <div className="space-y-6 overflow-y-auto pr-1">
         
         {/* SECTION 1: Ticket Controls */}
+        {!isLocked && (
         <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Ticket Controls</h3>
@@ -727,6 +740,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             )}
           </div>
         </div>
+        )}
 
         {/* SECTION 2: Linked Requests */}
         {linkedTickets.length > 0 && (
@@ -826,6 +840,45 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             </div>
           )}
 
+          {isLocked && (
+            <>
+              <div>
+                <span className="block text-[10px] uppercase text-zinc-500 mb-1">Closed at</span>
+                <div className="text-sm text-zinc-300 flex items-center gap-2">
+                  <svg className="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  {ticket.deadline
+                    ? new Date(ticket.deadline).toLocaleString()
+                    : '—'}
+                </div>
+              </div>
+
+              <div>
+                <span className="block text-[10px] uppercase text-zinc-500 mb-1">Status</span>
+                <div className="text-sm text-zinc-300 flex items-center gap-2">
+                  <svg className="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {ticket.status.replace('_', ' ')}
+                </div>
+              </div>
+
+              <div>
+                <span className="block text-[10px] uppercase text-zinc-500 mb-1">Assignee</span>
+                <div className="text-sm text-zinc-300">
+                  <svg className="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                      d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a7.5 7.5 0 0115 0" />
+                  </svg>
+                  {allUsers.find(u => u.id === ticket.assigned_to)?.full_name || 'Unassigned'}
+                </div>
+              </div>
+            </>
+          )}
+
           <div className="pt-3 border-t border-zinc-800">
             <span className="block text-[10px] uppercase text-zinc-500 mb-2">Quick Actions</span>
             <div className="flex flex-col gap-2">
@@ -850,8 +903,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             </div>
           </div>
         </div>
-      </div>
-
+        
       {/* Unlink Modal */}
       {unlinkModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -902,7 +954,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               onChange={(e) => setResolutionText(e.target.value)}
             />
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setShowSolvedModal(false)} className="px-4 py-2 text-zinc-400 hover:text-white transition-colors">Cancel</button>
               <button onClick={confirmSolved} disabled={isUpdating || !resolutionText.trim()} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center gap-2 disabled:opacity-50">
                 {isUpdating && <span className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full"></span>}
                 Confirm Solved
@@ -928,7 +979,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               onChange={(e) => setFailureReason(e.target.value)}
             />
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setShowFailedModal(false)} className="px-4 py-2 text-zinc-400 hover:text-white transition-colors">Cancel</button>
               <button onClick={confirmFailedStatus} disabled={isUpdating || !failureReason.trim()} className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg flex items-center gap-2 disabled:opacity-50">
                 {isUpdating && <span className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full"></span>}
                 Confirm Failure
@@ -938,5 +988,6 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
         </div>
       )}
     </div>
+  </div>
   );
 }

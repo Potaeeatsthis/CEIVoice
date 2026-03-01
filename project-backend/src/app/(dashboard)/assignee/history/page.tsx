@@ -14,7 +14,6 @@ async function getHistoryLogs() {
     return { authorized: false, logs: [] };
   }
 
-  // ✅ Join users table to show WHO did the action
   const { data, error } = await supabaseAdmin
     .from('audit_logs')
     .select(`
@@ -22,7 +21,7 @@ async function getHistoryLogs() {
       action,
       timestamp,
       ticket_id,
-      user:users!audit_logs_changed_by_fkey (
+      users:changed_by (
         full_name,
         email
       )
