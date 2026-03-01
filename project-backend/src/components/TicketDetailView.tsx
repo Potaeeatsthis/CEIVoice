@@ -573,37 +573,38 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
 
           <div className="space-y-5">
             {/* Status */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-400">Status</label>
-              {isStaff ? (
-                <div className="relative">
-                  <select 
-                    value={draftStatus}
-                    onChange={(e) => {
-                      const value = e.target.value as TicketStatus;
-                      if (value === 'SOLVED') { setShowSolvedModal(true); return; }
-                      if (value === 'FAILED') { setShowFailedModal(true); return; }
-                      setDraftStatus(value);
-                    }}
-                    disabled={isUpdating || isLocked}
-                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all appearance-none pr-8 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <option value="NEW">New</option>
-                    <option value="IN_PROGRESS">In Progress</option>
-                    <option value="SOLVED">Solved</option>
-                    <option value="FAILED">Failed</option>
-                    {isAdmin && <option value="MERGED">Merged</option>}
-                  </select>
-                  <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+            {!isAdmin && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-zinc-400">Status</label>
+                {isStaff ? (
+                  <div className="relative">
+                    <select 
+                      value={draftStatus}
+                      onChange={(e) => {
+                        const value = e.target.value as TicketStatus;
+                        if (value === 'SOLVED') { setShowSolvedModal(true); return; }
+                        if (value === 'FAILED') { setShowFailedModal(true); return; }
+                        setDraftStatus(value);
+                      }}
+                      disabled={isUpdating || isLocked}
+                      className="w-full bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-zinc-500/20 outline-none transition-all appearance-none pr-8 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="NEW">New</option>
+                      <option value="IN_PROGRESS">In Progress</option>
+                      <option value="SOLVED">Solved</option>
+                      <option value="FAILED">Failed</option>
+                    </select>
+                    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-sm text-zinc-300">
-                  {ticket.status.replace('_', ' ')}
-                </div>
-              )}
-            </div>
+                ) : (
+                  <div className="px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-sm text-zinc-300">
+                    {ticket.status.replace('_', ' ')}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Priority */}
             <div className="space-y-1.5">
