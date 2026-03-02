@@ -10,14 +10,58 @@ const PAGE_SIZE = 5;
 
 // Global Stats
 async function getGlobalStats() {
-  const { data, error } = await supabaseAdmin.from('tickets').select('status').neq('status', 'DRAFT');
-  if (error || !data) return { total: 0, pending: 0, inProgress: 0, solved: 0 };
-  return {
-    total: data.length,
-    pending: data.filter((t) => t.status === 'NEW').length,
-    inProgress: data.filter((t) => t.status === 'IN_PROGRESS').length,
-    solved: data.filter((t) => t.status === 'SOLVED').length,
-  };
+  const { data, error } = await supabaseAdmin
+    .from('tickets')
+    .select('status, deadline')
+    .neq('status', 'DRAFT');
+  
+  if (error || !data) return { total: 0, overdue: 0, inProgress: 0, solved: 0 };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); 
+  const todayTime = today.getTime();
+
+  let total = 0;
+  let overdue = 0;
+  let inProgress = 0;
+  let solved = 0;
+
+  const inactiveStatuses = ['SOLVED', 'MERGED'];
+
+  data.forEach((ticket) => {
+    total++;
+
+    if (ticket.status === 'IN_PROGRESS') {
+      inProgress++;
+    } else if (ticket.status === 'SOLVED') {
+      solved++;
+    }
+
+    // Overdue Calculation
+    if (ticket.deadline && !inactiveStatuses.includes(ticket.status)) {
+      let deadlineDate = new Date(ticket.deadline);
+
+      // Fallback: If Date is invalid because the DB stored it as DD-MM-YYYY instead of YYYY-MM-DD
+      if (isNaN(deadlineDate.getTime()) && typeof ticket.deadline === 'string') {
+        const parts = ticket.deadline.split('-');
+        if (parts.length === 3 && parts[0].length === 2) {
+          // Re-assemble to YYYY-MM-DD
+          deadlineDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+        }
+      }
+
+      // Check if it's a valid date before comparing
+      if (!isNaN(deadlineDate.getTime())) {
+        deadlineDate.setHours(0, 0, 0, 0);
+        
+        if (deadlineDate.getTime() < todayTime) {
+          overdue++;
+        }
+      }
+    }
+  });
+
+  return { total, overdue, inProgress, solved };
 }
 
 // Fetch Filtered & Paginated Tickets
@@ -91,9 +135,10 @@ export default async function AdminTicketsPage(props: {
         </div>
       </div>
 
+      {/* Updated Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard label="Total Tickets" value={stats.total} />
-        <StatCard label="Pending" value={stats.pending} color="blue" />
+        <StatCard label="Overdue" value={stats.overdue} color="purple" />
         <StatCard label="In Progress" value={stats.inProgress} color="amber" />
         <StatCard label="Solved" value={stats.solved} color="emerald" />
       </div>
@@ -115,7 +160,10 @@ function StatCard({ label, value, color = "zinc" }: any) {
     zinc: "text-white border-zinc-800",
     blue: "text-blue-400 border-blue-900/50 bg-blue-950/10",
     amber: "text-amber-400 border-amber-900/50 bg-amber-950/10",
-    emerald: "text-emerald-400 border-emerald-900/50 bg-emerald-950/10"
+    emerald: "text-emerald-400 border-emerald-900/50 bg-emerald-950/10",
+    red: "text-red-400 border-red-900/50 bg-red-950/10",
+    purple: "text-purple-400 border-purple-900/50 bg-purple-950/10",
+    rose: "text-rose-400 border-rose-900/50 bg-rose-950/10"
   };
   return (
     <div className={`rounded-md border p-4 ${colors[color]} bg-zinc-900/30`}>
