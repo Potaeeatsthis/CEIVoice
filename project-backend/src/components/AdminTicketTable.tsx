@@ -209,7 +209,7 @@ function StatusBadge({ status }: { status: string }) {
     IN_PROGRESS: "bg-amber-950/30 text-amber-400 border-amber-900",
     SOLVED: "bg-emerald-950/30 text-emerald-400 border-emerald-900",
     MERGED: "bg-purple-950/30 text-purple-400 border-purple-900",
-    FAILED: "bg-red-950/30 text-red-400 border-red-900",
+    FAILED: "bg-rose-400/15 text-rose-400 border-rose-900",
     DRAFT: "bg-zinc-800 text-zinc-400 border-zinc-700"
   };
   return <span className={`px-2 py-0.5 rounded text-xs whitespace-nowrap font-medium border ${styles[status] || styles.DRAFT}`}>{status.replace('_', ' ')}</span>;

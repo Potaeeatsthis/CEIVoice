@@ -138,7 +138,7 @@ export default async function AdminTicketsPage(props: {
       {/* Updated Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard label="Total Tickets" value={stats.total} />
-        <StatCard label="Overdue" value={stats.overdue} color="purple" />
+        <StatCard label="Overdue" value={stats.overdue} color="rose" />
         <StatCard label="In Progress" value={stats.inProgress} color="amber" />
         <StatCard label="Solved" value={stats.solved} color="emerald" />
       </div>
