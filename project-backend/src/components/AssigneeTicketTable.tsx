@@ -41,12 +41,10 @@ export default function AssigneeTicketTable({
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
 
-  // 🔎 Filters
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // 📄 Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const ticketsPerPage = 20;
 
@@ -71,10 +69,8 @@ export default function AssigneeTicketTable({
 
     fetchUnread();
 
-    // Poll every 15s as base fallback
     const interval = setInterval(fetchUnread, 15000);
 
-    // ✅ Re-fetch instantly when user navigates back to this tab
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') fetchUnread();
     };
@@ -83,7 +79,6 @@ export default function AssigneeTicketTable({
     // Manual refresh trigger
     window.addEventListener('refresh-unread-stats', fetchUnread);
 
-    // ✅ Realtime — works if Supabase realtime is enabled on comments + ticket_reads
     const channel = supabaseBrowser
       .channel('assignee-unread-watch')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, () => fetchUnread())
@@ -100,7 +95,6 @@ export default function AssigneeTicketTable({
     };
   }, [userId, fetchUnread]);
 
-  // ================= FILTER + SEARCH =================
   const filteredTickets = useMemo(() => {
     return tickets.filter((ticket) => {
       const statusMatch = statusFilter === 'ALL' || ticket.status === statusFilter;
@@ -112,14 +106,12 @@ export default function AssigneeTicketTable({
     });
   }, [tickets, statusFilter, priorityFilter, searchTerm]);
 
-  // ================= PAGINATION =================
   const totalPages = Math.ceil(filteredTickets.length / ticketsPerPage);
   const paginatedTickets = filteredTickets.slice(
     (currentPage - 1) * ticketsPerPage,
     currentPage * ticketsPerPage
   );
 
-  // ================= SORT =================
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
@@ -199,7 +191,6 @@ export default function AssigneeTicketTable({
               <th className="px-6 py-3 w-36 cursor-pointer hover:text-white group text-left whitespace-nowrap" onClick={() => handleSort('deadline')}>
                 <div className="flex items-center gap-1.5">Deadline {getSortIcon('deadline')}</div>
               </th>
-              <th className="px-6 py-3 w-24 text-right whitespace-nowrap">Action</th>
             </tr>
           </thead>
 
@@ -211,9 +202,9 @@ export default function AssigneeTicketTable({
                 <td className="px-6 py-4 w-full max-w-0">
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-zinc-200 group-hover:text-white block truncate">
+                      <Link href={`/assignee/tickets/${ticket.id}`} className="font-medium text-zinc-200 hover:text-white hover:underline block truncate transition-colors">
                         {ticket.title || 'Untitled Ticket'}
-                      </span>
+                      </Link>
                       {unreadCounts[Number(ticket.id)] > 0 && (
                         <span className="flex-shrink-0 flex items-center gap-1 bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider animate-in fade-in zoom-in duration-300">
                           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
@@ -237,11 +228,6 @@ export default function AssigneeTicketTable({
                   ) : (
                     <span className="text-zinc-700">-</span>
                   )}
-                </td>
-                <td className="px-6 py-4 text-right whitespace-nowrap">
-                  <Link href={`/assignee/tickets/${ticket.id}`} className="text-zinc-400 hover:text-white hover:underline">
-                    Manage
-                  </Link>
                 </td>
               </tr>
             ))}

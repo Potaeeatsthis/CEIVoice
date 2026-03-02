@@ -144,7 +144,6 @@ export default function AdminTicketTable({ initialTickets, userId }: { initialTi
               <th className="px-6 py-3 w-40 cursor-pointer hover:text-white group text-left whitespace-nowrap" onClick={() => handleSort('assignee')}>
                 <div className="flex items-center gap-1.5">Assignee {getSortIcon('assignee')}</div>
               </th>
-              <th className="px-6 py-3 w-24 text-right whitespace-nowrap">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800">
@@ -157,9 +156,10 @@ export default function AdminTicketTable({ initialTickets, userId }: { initialTi
                 <td className="px-6 py-4 w-full max-w-0">
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-zinc-200 group-hover:text-white block truncate">
-                        {ticket.title || 'Untitled Ticket'}
-                      </span>
+                      <Link href={`/admin/tickets/${ticket.id}`}
+ 			className="font-medium text-zinc-200 hover:text-white hover:underline block truncate transition-colors"
+		      > {ticket.title || 'Untitled Ticket'}
+		      </Link>
                       {unreadCounts[Number(ticket.id)] > 0 && (
                         <span className="flex-shrink-0 flex items-center gap-1 bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider animate-in fade-in zoom-in duration-300">
                           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
@@ -174,9 +174,6 @@ export default function AdminTicketTable({ initialTickets, userId }: { initialTi
                 <td className="px-6 py-4 whitespace-nowrap"><div className="flex items-center"><PriorityIcon priority={ticket.priority} /></div></td>
                 <td className="px-6 py-4 text-zinc-400 whitespace-nowrap">{ticket.deadline ? <span className="text-zinc-300 font-mono text-xs">{formatDate(ticket.deadline)}</span> : '-'}</td>
                 <td className="px-6 py-4 text-zinc-400 truncate whitespace-nowrap">{ticket.assigned_to_user?.full_name || 'Unassigned'}</td>
-                <td className="px-6 py-4 text-right whitespace-nowrap">
-                  <Link href={`/admin/tickets/${ticket.id}`} className="text-zinc-400 hover:text-white hover:underline">Manage</Link>
-                </td>
               </tr>
             ))}
           </tbody>
