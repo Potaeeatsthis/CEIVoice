@@ -133,7 +133,7 @@ export async function PATCH(
 
     const body = await request.json();
     
-    // Extract all editable fields
+    // Extract all editable fields (ADDED ai_solution here)
     const { 
       title, 
       description, 
@@ -142,7 +142,8 @@ export async function PATCH(
       category, 
       deadline, 
       assigned_to,
-      failure_reason, 
+      failure_reason,
+      ai_solution
     } = body;
 
     // Start with the updated_at timestamp
@@ -158,6 +159,11 @@ export async function PATCH(
     if (failure_reason !== undefined) {
       updates.failure_reason = failure_reason;
     }
+    
+    // ADDED ai_solution to the database update payload
+    if (ai_solution !== undefined) {
+      updates.ai_solution = ai_solution;
+    }
 
     // Handle Deadline (Allow null to clear it)
     if (deadline !== undefined) updates.deadline = deadline;
@@ -170,7 +176,6 @@ export async function PATCH(
     }
 
     // Perform the update
-    // ✨ CRITICAL: We fetch 'email' for creator and assignee so we can send notifications
     const { data: ticket, error } = await supabaseAdmin
       .from('tickets')
       .update(updates)
@@ -182,7 +187,6 @@ export async function PATCH(
       `)
       .single();
 
-      
       if (error) throw error;
       
       if (status === 'SOLVED') {
@@ -193,14 +197,13 @@ export async function PATCH(
           .eq('type', 'final_resolution')
           .maybeSingle();
 
-          
           if (!existing) {
             await supabaseAdmin.from('comments').insert({
               ticket_id: id,
-              content: 'Final Resolution: This issue has been resolved.',
+              content: ai_solution ? `Final Resolution: ${ai_solution}` : 'Final Resolution: This issue has been resolved.',
               type: 'final_resolution',
               is_internal: false,
-              created_by: userId,   // ✅ ADD THIS LINE
+              created_by: userId,
               created_at: new Date().toISOString()
             });
           }
@@ -217,31 +220,26 @@ export async function PATCH(
         });
       }
 
-    // ✨ EMAIL NOTIFICATION LOGIC (Fire & Forget)
+    // EMAIL NOTIFICATION LOGIC (Fire & Forget)
     const triggerEmails = async () => {
-        // 1. SOLVED
         if (status === 'SOLVED') {
             await sendTicketNotification('SOLVED', ticket);
         }
         if (status === 'FAILED') {
             await sendTicketNotification('FAILED', ticket);
         }
-        // 2. MERGED
         if (status === 'MERGED') {
             await sendTicketNotification('MERGED', ticket);
         }
-        // 3. DEADLINE UPDATED (Check if present in body and is valid)
         if (deadline && deadline !== '') {
-             // We notify if a deadline was sent (assuming UI only sends if changed)
              await sendTicketNotification('DEADLINE', ticket);
         }
-        // 4. ASSIGNEE UPDATED (Notify both parties)
         if (assigned_to && ticket.assigned_to_user) {
              await sendTicketNotification('ASSIGNED', ticket);
         }
     };
 
-    triggerEmails(); // Run in background to keep UI fast
+    triggerEmails(); 
 
     return NextResponse.json({ success: true, ticket });
 

@@ -223,7 +223,11 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
 
   useEffect(() => {
     if (showSolvedModal) {
+      if (ticket.ai_solution?.includes('AI Suggested Next Steps:')) {
+        setResolutionText('');
+      } else {
       setResolutionText(ticket.ai_solution || '');
+      }
     }
   }, [showSolvedModal, ticket.ai_solution]);
 
