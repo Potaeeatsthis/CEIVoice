@@ -86,13 +86,24 @@ export default async function AssigneeTicketPage({ params }: { params: { id: str
           ←
         </Link>
 
-        <div className="flex items-center gap-3">
-          <span className="text-zinc-500 font-mono">#{data.ticket.id}</span>
-          <h1 className="text-2xl font-bold text-white">
-            {data.ticket.title || 'Untitled Request'}
-          </h1>
+         <div>
+            <div className="flex items-center gap-3">
+              <span className="text-zinc-500 font-mono text-lg">#{data.ticket.id}</span>
+              <h1 className="text-2xl font-bold text-white tracking-tight">
+                {data.ticket.title || "Untitled Request"}
+              </h1>
+              <span className={`px-2 py-0.5 rounded text-xs font-medium border
+                ${data.ticket.status === 'NEW' ? 'bg-blue-950/30 text-blue-400 border-blue-900' : 
+                  data.ticket.status === 'IN_PROGRESS' ? 'bg-yellow-950/30 text-yellow-400 border-yellow-900' :
+                  data.ticket.status === 'SOLVED' ? 'bg-emerald-950/30 text-emerald-400 border-emerald-900' :
+                  data .ticket.status === 'FAILED' ? 'bg-red-950/30 text-red-400 border-red-900' :
+                  'bg-zinc-900 text-zinc-500 border-zinc-800'}`
+              }>
+                {data.ticket.status.replace('_', ' ')}
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
 
       {/* Main view (status + reassign allowed) */}
       <TicketDetailView

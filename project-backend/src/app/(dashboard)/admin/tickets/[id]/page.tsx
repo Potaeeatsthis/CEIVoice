@@ -110,10 +110,12 @@ export default async function AdminTicketPage({ params }: { params: Promise<{ id
               </h1>
               <span className={`px-2 py-0.5 rounded text-xs font-medium border
                 ${data.ticket.status === 'NEW' ? 'bg-blue-950/30 text-blue-400 border-blue-900' : 
+                  data.ticket.status === 'IN_PROGRESS' ? 'bg-yellow-950/30 text-yellow-400 border-yellow-900' :
                   data.ticket.status === 'SOLVED' ? 'bg-emerald-950/30 text-emerald-400 border-emerald-900' :
+                  data .ticket.status === 'FAILED' ? 'bg-red-950/30 text-red-400 border-red-900' :
                   'bg-zinc-900 text-zinc-500 border-zinc-800'}`
               }>
-                {data.ticket.status}
+                {data.ticket.status.replace('_', ' ')}
               </span>
             </div>
           </div>

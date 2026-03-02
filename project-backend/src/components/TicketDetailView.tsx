@@ -849,10 +849,12 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                       d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  {ticket.deadline
-                    ? new Date(ticket.deadline).toLocaleString()
-                    : '—'}
-                </div>
+                  {new Date(ticket.deadline).toLocaleDateString('en-GB', { 
+                    day: '2-digit', 
+                    month: 'short', 
+                    year: 'numeric',
+                  })}
+                  </div>
               </div>
 
               <div>
@@ -868,12 +870,12 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
 
               <div>
                 <span className="block text-[10px] uppercase text-zinc-500 mb-1">Assignee</span>
-                <div className="text-sm text-zinc-300">
+                <div className="text-sm text-zinc-300 flex items-center gap-2">
                   <svg className="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                       d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a7.5 7.5 0 0115 0" />
                   </svg>
-                  {allUsers.find(u => u.id === ticket.assigned_to)?.full_name || 'Unassigned'}
+                    {allUsers.find(u => u.id === ticket.assigned_to)?.full_name || 'Unassigned'}
                 </div>
               </div>
             </>
