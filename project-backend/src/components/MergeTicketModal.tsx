@@ -8,29 +8,39 @@ interface MergeTicketModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedTicketIds: number[];
+  selectedTickets: any[];
   onSuccess: () => void;
 }
 
-export default function MergeTicketModal({ isOpen, onClose, selectedTicketIds, onSuccess }: MergeTicketModalProps) {
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    NEW: "bg-blue-950/30 text-blue-400 border-blue-900",
+    IN_PROGRESS: "bg-amber-950/30 text-amber-400 border-amber-900",
+    SOLVED: "bg-emerald-950/30 text-emerald-400 border-emerald-900",
+    MERGED: "bg-purple-950/30 text-purple-400 border-purple-900",
+    FAILED: "bg-rose-400/15 text-rose-400 border-rose-900",
+    DRAFT: "bg-zinc-800 text-zinc-400 border-zinc-700"
+  };
+  return <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border ${styles[status] || styles.DRAFT}`}>{status.replace('_', ' ')}</span>;
+}
+
+export default function MergeTicketModal({ isOpen, onClose, selectedTicketIds, selectedTickets, onSuccess }: MergeTicketModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('MEDIUM');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // ✨ New: Custom Error State (No more browser alerts!)
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleSubmit = async () => {
-    // 1. Validate Input
     if (!title.trim() || !description.trim()) {
       setError("Please provide a Title and Summary for the new ticket.");
       return;
     }
 
     setIsSubmitting(true);
-    setError(null); // Clear previous errors
+    setError(null);
 
     try {
       const res = await fetch('/api/admin/merge', {
@@ -74,13 +84,28 @@ export default function MergeTicketModal({ isOpen, onClose, selectedTicketIds, o
         {/* Body */}
         <div className="p-6 space-y-5">
             
-            {/* ✨ Beautiful Error Banner */}
             {error && (
                 <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3 text-red-400 text-sm animate-in slide-in-from-top-2">
                     <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     {error}
                 </div>
             )}
+
+            {/* List of Tickets Being Merged */}
+            <div className="space-y-2">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Tickets to Merge</label>
+                <div className="bg-zinc-950 border border-zinc-800 rounded-lg max-h-32 overflow-y-auto p-1.5 space-y-1">
+                    {selectedTickets.map(ticket => (
+                        <div key={ticket.id} className="flex items-center gap-3 text-xs p-2 hover:bg-zinc-900 rounded-md transition-colors border border-transparent hover:border-zinc-800">
+                            <span className="text-zinc-500 font-mono shrink-0">#{ticket.id}</span>
+                            <span className="text-zinc-300 truncate flex-1">{ticket.title || 'Untitled Ticket'}</span>
+
+                            <StatusBadge status={ticket.status} />
+
+                        </div>
+                    ))}
+                </div>
+            </div>
 
             <div className="space-y-2">
                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">New Master Title</label>
@@ -90,7 +115,7 @@ export default function MergeTicketModal({ isOpen, onClose, selectedTicketIds, o
                     value={title}
                     onChange={(e) => {
                         setTitle(e.target.value);
-                        if(error) setError(null); // Clear error on type
+                        if(error) setError(null);
                     }}
                 />
             </div>
