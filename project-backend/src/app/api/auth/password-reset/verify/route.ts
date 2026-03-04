@@ -1,16 +1,18 @@
 // src/app/api/auth/password-reset/verify/route.ts
+
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { RESET_COOKIE } from '@/lib/auth';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const token = searchParams.get('token');
 
   if (!token) {
-    return NextResponse.redirect(new URL('/login?error=Invalid+Token', request.url));
+    return NextResponse.redirect(new URL('/login?error=Invalid+link', request.url));
   }
 
-  // 1. Verify token exists in DB before setting cookie
+  // Verify token exists and has not expired
   const { data: user } = await supabaseAdmin
     .from('users')
     .select('id')
@@ -19,19 +21,18 @@ export async function GET(request: Request) {
     .single();
 
   if (!user) {
-    // If invalid, send them to login with an error
-    return NextResponse.redirect(new URL('/login?error=Expired+or+Invalid+Link', request.url));
+    return NextResponse.redirect(new URL('/login?error=Expired+or+invalid+link', request.url));
   }
 
-  // 2. Token is valid. Create a redirect response to the Clean Page
-  const response = NextResponse.redirect(new URL('/auth/reset-password', request.url));
+  const response = NextResponse.redirect(
+    new URL('/reset-password', request.url)
+  );
 
-  // 3. Set the token in a Secure, HttpOnly Cookie (User cannot see this)
-  response.cookies.set('reset_flow_token', token, {
-    httpOnly: true, // JavaScript cannot read this (XSS protection)
-    secure: process.env.NODE_ENV === 'production', // HTTPS only in prod
+  response.cookies.set(RESET_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 1800, // 30 minutes expiration
+    maxAge: 30 * 60, // 30 minutes
     path: '/',
   });
 
