@@ -1,102 +1,108 @@
 // src/app/api/auth/google/route.ts
+
 import { NextResponse } from 'next/server';
-import { supabase, supabaseAdmin } from '@/lib/supabase';
-import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
-import bcrypt from 'bcryptjs';
+import { supabaseAdmin } from '@/lib/supabase';
+import { hashPassword, signJWT, AUTH_COOKIE, ROLE_COOKIE, cookieOptions } from '@/lib/auth';
 import { OAuth2Client } from 'google-auth-library';
+import crypto from 'crypto';
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export async function POST(request: Request) {
   try {
-    // 1. Get the ID Token sent from the Frontend
     const { idToken } = await request.json();
 
     if (!idToken) {
-      return NextResponse.json({ error: 'Missing ID Token' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing ID token' }, { status: 400 });
     }
 
-    // 2. VERIFY the token with Google
+    // Verify token with Google
     const ticket = await client.verifyIdToken({
-      idToken: idToken,
-      audience: process.env.GOOGLE_CLIENT_ID, 
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
     });
-    
-    const payload = ticket.getPayload();
-    const googleEmail = payload?.email;
-    const googleName = payload?.name;
 
-    if (!googleEmail) {
-      return NextResponse.json({ error: 'Invalid Token: Email missing' }, { status: 400 });
+    const googlePayload = ticket.getPayload();
+    const googleEmail = googlePayload?.email;
+    const googleName = googlePayload?.name;
+    const googleId = googlePayload?.sub;
+
+    if (!googleEmail || !googleId) {
+      return NextResponse.json({ error: 'Invalid token: missing email or sub' }, { status: 400 });
     }
 
-    // 3. Check if user exists in your database
-    const { data: user } = await supabaseAdmin
+    // Check if user exists
+    let { data: user } = await supabaseAdmin
       .from('users')
-      .select('*')
+      .select('id, email, full_name, role, provider')
       .eq('email', googleEmail)
       .single();
 
-    let finalUser = user;
+    let isNewUser = false;
 
-    // 4. If user does NOT exist, create them (Auto-Registration)
-    if (!finalUser) {
-      console.log(`Creating new user for Google login: ${googleEmail}`);
+    if (!user) {
+      isNewUser = true;
 
-      // Generate a secure random dummy password
-      // This satisfies your database "password_hash NOT NULL" constraint
-      const randomPassword = crypto.randomBytes(32).toString('hex');
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+      // Generate a random dummy password_hash to satisfy DB NOT NULL constraint.
+      // The user will be redirected to /setup-password to set a real one.
+      const dummyPassword = crypto.randomBytes(32).toString('hex');
+      const hashedDummy = await hashPassword(dummyPassword);
 
       const { data: newUser, error } = await supabaseAdmin
         .from('users')
         .insert({
           email: googleEmail,
-          password_hash: hashedPassword, // Dummy hash (user cannot use this to login manually)
+          password_hash: hashedDummy,
           full_name: googleName || 'Google User',
-          role: 'USER', // Default role
-          // avatar_url: payload?.picture, // Uncomment if you have this column in DB
+          role: 'USER',
+          provider: 'google',
+          google_id: googleId,
+          scope: [],
         })
-        .select()
+        .select('id, email, full_name, role')
         .single();
 
       if (error) {
-        console.error("Database Insert Error:", error);
+        console.error('Google user creation error:', error);
         throw new Error('Failed to create user');
       }
-      finalUser = newUser;
+
+      user = newUser;
+    } else if (user.provider === 'local') {
+      // Existing manual account — link Google ID without overwriting anything
+      await supabaseAdmin
+        .from('users')
+        .update({ google_id: googleId })
+        .eq('id', user.id);
     }
 
-    // 5. Generate YOUR System's JWT
-    // This unifies the session format for both Password and Google users
-    const token = jwt.sign(
-      { 
-        userId: finalUser.id, 
-        email: finalUser.email, 
-        role: finalUser.role 
-      },
-      process.env.JWT_SECRET!,
-      { expiresIn: '1d' }
-    );
-
-    // 6. Return Success
-    return NextResponse.json({
-      success: true,
-      message: user ? 'Login successful' : 'User registered via Google',
-      token,
-      user: {
-        id: finalUser.id,
-        email: finalUser.email,
-        full_name: finalUser.full_name,
-        role: finalUser.role,
-        // avatar_url: finalUser.avatar_url // Uncomment if you have this column
-      }
+    // Issue JWT (same shape as manual login)
+    const token = await signJWT({
+      userId: user!.id,
+      email: user!.email,
+      role: user!.role,
     });
 
+    const response = NextResponse.json({
+      success: true,
+      isNewUser, // <-- frontend uses this to redirect new users to /setup-password
+      user: {
+        id: user!.id,
+        email: user!.email,
+        full_name: user!.full_name,
+        role: user!.role,
+      },
+    });
+
+    response.cookies.set(AUTH_COOKIE, token, cookieOptions);
+    response.cookies.set(ROLE_COOKIE, user!.role, {
+      ...cookieOptions,
+      httpOnly: false,
+    });
+
+    return response;
   } catch (error: any) {
-    console.error('Google Auth Route Error:', error.message);
+    console.error('Google Auth Error:', error.message);
     return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });
   }
 }
