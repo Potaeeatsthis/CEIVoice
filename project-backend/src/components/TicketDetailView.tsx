@@ -457,11 +457,11 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
           
           {/* FINAL RESOLUTION OR FAILURE REASON DISPLAY */}
           {ticket.status === 'SOLVED' && ticket.ai_solution && (
-            <div className="flex gap-3 flex-row-reverse">
+            <div className={`flex gap-3 ${isAssignee ? 'flex-row-reverse' : ''}`}>
               <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 flex items-center justify-center text-xs font-bold">
                 {allUsers.find(u => u.id === ticket.assigned_to)?.full_name?.charAt(0) || 'A'}
               </div>
-              <div className="flex flex-col max-w-[75%] items-end">
+              <div className="flex flex-col max-w-[75%] items-start">
                 <div className="flex items-center gap-2 mb-1 px-1">
                   <span className="text-xs font-medium text-zinc-400">
                     {allUsers.find(u => u.id === ticket.assigned_to)?.full_name || 'Assignee'}
@@ -475,11 +475,11 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
             </div>
           )}
           {ticket.status === 'FAILED' && ticket.failure_reason && (
-            <div className="flex gap-3 flex-row-reverse">
+            <div className={`flex gap-3 ${isAssignee ? 'flex-row-reverse' : ''}`}>
               <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 flex items-center justify-center text-xs font-bold">
                 {allUsers.find(u => u.id === ticket.assigned_to)?.full_name?.charAt(0) || 'A'}
               </div>
-              <div className="flex flex-col max-w-[75%] items-end">
+              <div className="flex flex-col max-w-[75%] items-start">
                 <div className="flex items-center gap-2 mb-1 px-1">
                   <span className="text-xs font-medium text-zinc-400">
                     {allUsers.find(u => u.id === ticket.assigned_to)?.full_name || 'Assignee'}
