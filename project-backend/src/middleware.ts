@@ -1,46 +1,54 @@
 // src/middleware.ts
+
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
-const protectedApiPaths = ['/api/tickets', '/api/users'];
+const SECRET_KEY = new TextEncoder().encode(
+  process.env.JWT_SECRET || 'fallback-secret-key-change-this'
+);
 
-const corsHeaders = {
+const PROTECTED_API_PATHS = ['/api/tickets', '/api/users'];
+
+const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
   'Access-Control-Allow-Headers':
     'Content-Type, Authorization, x-user-id, x-user-role, x-user-email',
 };
 
+function addCors(response: NextResponse) {
+  Object.entries(CORS_HEADERS).forEach(([k, v]) => response.headers.set(k, v));
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname;
-  const userRole = request.cookies.get('user_role')?.value || 'USER';
+  const { pathname } = request.nextUrl;
 
-  // -------------------------
-  // 0. Handle CORS preflight
-  // -------------------------
+  // CORS preflight
   if (request.method === 'OPTIONS') {
-    return NextResponse.json({}, { headers: corsHeaders });
+    return NextResponse.json({}, { headers: CORS_HEADERS });
   }
 
-  // -------------------------
-  // 1. AUTH PAGE restrictions
-  // -------------------------
-  if (path === '/login' || path === '/register') {
-    const hasToken = request.cookies.get('token')?.value;
+  const userRole = request.cookies.get('user_role')?.value ?? 'USER';
+  const hasToken = !!request.cookies.get('token')?.value;
+
+  // Auth pages: redirect already-logged-in users
+  if (pathname === '/login' || pathname === '/register') {
     if (hasToken) {
-      if (userRole === 'ADMIN') return NextResponse.redirect(new URL('/admin/tickets', request.url));
-      if (userRole === 'ASSIGNEE') return NextResponse.redirect(new URL('/assignee/tickets', request.url));
-      return NextResponse.redirect(new URL('/tickets', request.url));
+      const dest =
+        userRole === 'ADMIN'
+          ? '/admin/tickets'
+          : userRole === 'ASSIGNEE'
+          ? '/assignee/tickets'
+          : '/tickets';
+      return NextResponse.redirect(new URL(dest, request.url));
     }
+    return addCors(NextResponse.next());
   }
-  
-  // -------------------------
-  // 2. STAFF restrictions (ADMIN & ASSIGNEE)
-  // -------------------------
-  // 1. Instantly route staff to their dashboards when they login
-  // 2. Prevent staff from creating tickets or viewing personal user pages
-  if (path.startsWith('/tickets')) {
+
+  //  Route staff away from user-facing pages
+  if (pathname.startsWith('/tickets')) {
     if (userRole === 'ADMIN') {
       return NextResponse.redirect(new URL('/admin/tickets', request.url));
     }
@@ -49,77 +57,51 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Assignee cannot access the admin area
-  if (path.startsWith('/admin') && userRole === 'ASSIGNEE') {
+  // Prevent ASSIGNEE from admin area
+  if (pathname.startsWith('/admin') && userRole === 'ASSIGNEE') {
     return NextResponse.redirect(new URL('/assignee/tickets', request.url));
   }
 
-  // -------------------------
-  // 3. USER restrictions
-  // -------------------------
-  // Normal users cannot access staff dashboards
+  // Prevent USER from staff areas
   if (
-    (path.startsWith('/admin') || path.startsWith('/assignee')) &&
+    (pathname.startsWith('/admin') || pathname.startsWith('/assignee')) &&
     userRole === 'USER'
   ) {
-    return NextResponse.redirect(new URL('/tickets/create', request.url));
+    return NextResponse.redirect(new URL('/tickets', request.url));
   }
 
-  // ==================================================
-  // API PROTECTION (JWT)
-  // ==================================================
+  // Protected API routes: verify JWT
+  const isProtectedApi = PROTECTED_API_PATHS.some((p) => pathname.startsWith(p));
 
-  const isApiProtected = protectedApiPaths.some((p) =>
-    path.startsWith(p)
-  );
-
-  // Not protected → just continue
-  if (!isApiProtected) {
-    const response = NextResponse.next();
-    Object.entries(corsHeaders).forEach(([key, value]) => {
-      response.headers.set(key, value);
-    });
-    return response;
+  if (!isProtectedApi) {
+    return addCors(NextResponse.next());
   }
 
+  // Accept token from Authorization header OR cookie
   const authHeader = request.headers.get('authorization');
-  let token = authHeader?.split(' ')[1];
-
-  if (!token) {
-    token = request.cookies.get('token')?.value;
-  }
+  const token =
+    authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : request.cookies.get('token')?.value;
 
   if (!token) {
     return NextResponse.json(
       { error: 'Unauthorized: No token provided' },
-      { status: 401, headers: corsHeaders }
+      { status: 401, headers: CORS_HEADERS }
     );
   }
 
   try {
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, SECRET_KEY);
 
     const requestHeaders = new Headers(request.headers);
-
     requestHeaders.set('x-user-id', payload.userId as string);
     requestHeaders.set('x-user-role', payload.role as string);
     requestHeaders.set('x-user-email', payload.email as string);
 
-    const response = NextResponse.next({
-      request: { headers: requestHeaders },
-    });
-
-    Object.entries(corsHeaders).forEach(([key, value]) => {
-      response.headers.set(key, value);
-    });
-
-    return response;
+    return addCors(NextResponse.next({ request: { headers: requestHeaders } }));
   } catch {
     return NextResponse.json(
       { error: 'Unauthorized: Invalid token' },
-      { status: 401, headers: corsHeaders }
+      { status: 401, headers: CORS_HEADERS }
     );
   }
 }
@@ -131,7 +113,5 @@ export const config = {
     '/admin/:path*',
     '/assignee/:path*',
     '/tickets/:path*',
-//    '/login',
-    '/register'
   ],
 };
