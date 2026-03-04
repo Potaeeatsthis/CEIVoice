@@ -1,4 +1,5 @@
 // src/components/emails/ResetPasswordEmail.tsx
+
 import {
   Body,
   Button,
@@ -8,7 +9,6 @@ import {
   Preview,
   Section,
   Text,
-  Hr,
 } from '@react-email/components';
 import * as React from 'react';
 
@@ -27,9 +27,19 @@ export const ResetPasswordEmail = ({
       <Preview>Reset your CEiVoice password</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Section>
-            <Text style={heading}>Password Reset Request</Text>
+          <Section style={header}>
+            <Text style={headerText}>CEIVOICE SECURITY</Text>
+          </Section>
+
+          <Section style={body}>
+            <Text style={{ ...badge, backgroundColor: '#4d0000', color: '#ff4d4d' }}>
+              Action Required
+            </Text>
+
+            <Text style={title}>Password Reset Request</Text>
+
             <Text style={text}>Hi {name},</Text>
+
             <Text style={text}>
               Someone recently requested a password change for your CEiVoice
               account. If this was you, you can set a new password here:
@@ -46,10 +56,14 @@ export const ResetPasswordEmail = ({
               just ignore and delete this message.
             </Text>
             
-            <Hr style={hr} />
-            
-            <Text style={footer}>
+            <Text style={{ ...text, marginTop: '24px', fontSize: '13px', color: '#6b7280' }}>
               To keep your account secure, please don't forward this email to anyone.
+            </Text>
+          </Section>
+
+          <Section style={footer}>
+            <Text style={footerText}>
+              © 2026 CEiVoice System. All rights reserved.
             </Text>
           </Section>
         </Container>
@@ -60,58 +74,73 @@ export const ResetPasswordEmail = ({
 
 export default ResetPasswordEmail;
 
-// --- Styles ---
 const main = {
-  backgroundColor: '#f6f9fc',
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
+  backgroundColor: '#0a0a0a',
+  fontFamily: 'Helvetica, Arial, sans-serif',
+  padding: '40px 20px',
 };
-
 const container = {
-  backgroundColor: '#ffffff',
+  maxWidth: '600px',
   margin: '0 auto',
-  padding: '20px 0 48px',
-  marginBottom: '64px',
+  backgroundColor: '#1a1a1a',
+  borderRadius: '8px',
+  overflow: 'hidden',
 };
-
-const heading = {
-  fontSize: '24px',
-  fontWeight: '600',
-  color: '#484848',
-  padding: '0 48px',
+const header = {
+  backgroundColor: '#000000',
+  padding: '24px',
+  textAlign: 'center' as const,
 };
-
+const headerText = {
+  margin: 0,
+  color: '#00e676',
+  fontSize: '18px',
+  fontWeight: 'bold',
+  letterSpacing: '2px',
+  textTransform: 'uppercase' as const,
+};
+const body = {
+  padding: '32px',
+};
+const badge = {
+  display: 'inline-block',
+  padding: '6px 14px',
+  borderRadius: '9999px',
+  fontSize: '13px',
+  fontWeight: 'bold',
+  marginBottom: '24px',
+};
+const title = {
+  margin: '0 0 24px 0',
+  color: '#ffffff',
+  fontSize: '26px',
+  fontWeight: 'bold',
+};
 const text = {
-  fontSize: '16px',
-  lineHeight: '26px',
-  color: '#484848',
-  padding: '0 48px',
+  margin: '0 0 16px 0',
+  color: '#a3a3a3',
+  fontSize: '15px',
+  lineHeight: '1.6',
 };
-
 const buttonContainer = {
-  padding: '27px 0 27px',
-  textAlign: 'center' as const,
+  margin: '32px 0',
 };
-
 const button = {
-  backgroundColor: '#5F51E8', // Your brand color here
-  borderRadius: '3px',
-  color: '#fff',
-  fontSize: '16px',
+  backgroundColor: '#00e676',
+  color: '#000000',
+  padding: '12px 20px',
+  borderRadius: '6px',
   textDecoration: 'none',
-  textAlign: 'center' as const,
-  display: 'block',
-  padding: '12px 24px',
+  fontWeight: 'bold',
+  display: 'inline-block',
 };
-
-const hr = {
-  borderColor: '#e6ebf1',
-  margin: '20px 0',
-};
-
 const footer = {
-  color: '#8898aa',
-  fontSize: '12px',
-  lineHeight: '16px',
-  padding: '0 48px',
+  backgroundColor: '#000000',
+  padding: '24px',
+  textAlign: 'center' as const,
+};
+const footerText = {
+  margin: 0,
+  color: '#525252',
+  fontSize: '13px',
 };

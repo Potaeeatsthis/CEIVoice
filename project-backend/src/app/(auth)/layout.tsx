@@ -1,4 +1,6 @@
 // src/app/(auth)/layout.tsx
+import Image from "next/image";
+
 export default function AuthLayout({
   children,
 }: {
@@ -6,31 +8,23 @@ export default function AuthLayout({
 }) {
   return (
     <div className="w-full min-h-screen lg:grid lg:grid-cols-2">
-      
+
       {/* LEFT PANEL - Branding */}
-      <div className="hidden bg-zinc-900 lg:flex flex-col justify-between p-10 text-white border-r border-zinc-800">
+      <div
+        className="hidden lg:flex flex-col justify-between p-10 text-white border-r border-zinc-800 bg-cover bg-center"
+        style={{ backgroundImage: "url('/login-bg.png')" }}
+      >
         <div className="flex items-center text-lg font-medium">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="mr-2 h-6 w-6"
-          >
-            <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3" />
-          </svg>
+          <Image
+            src="/logo_cei.png"
+            alt="CEiVoice Logo"
+            width={32}
+            height={32}
+            className="mr-2"
+          />
           CEiVoice
         </div>
-        <div className="relative z-20 mt-auto">
-          <blockquote className="space-y-2">
-            <p className="text-lg">
-              &ldquo;Streamlining support communication through intelligent voice integration.&rdquo;
-            </p>
-          </blockquote>
-        </div>
+
       </div>
 
       {/* RIGHT PANEL - Content Container */}
@@ -39,7 +33,7 @@ export default function AuthLayout({
           {children}
         </div>
       </div>
-      
+
     </div>
   );
 }
