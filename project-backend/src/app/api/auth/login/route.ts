@@ -43,9 +43,15 @@ export async function POST(request: Request) {
       },
     });
 
+    // HttpOnly JWT — inaccessible to JavaScript
     response.cookies.set(AUTH_COOKIE, token, cookieOptions);
 
+    // Non-HttpOnly cookies — readable by middleware and server components
     response.cookies.set(ROLE_COOKIE, user.role, {
+      ...cookieOptions,
+      httpOnly: false,
+    });
+    response.cookies.set('user_id', user.id, {
       ...cookieOptions,
       httpOnly: false,
     });

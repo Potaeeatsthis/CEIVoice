@@ -99,6 +99,10 @@ export async function POST(request: Request) {
       ...cookieOptions,
       httpOnly: false,
     });
+    response.cookies.set('user_id', user!.id, {
+      ...cookieOptions,
+      httpOnly: false,
+    });
 
     return response;
   } catch (error: any) {
