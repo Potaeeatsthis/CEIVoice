@@ -2,23 +2,63 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import PriorityIcon from '@/components/PriorityIcon';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 import type { Ticket } from '@/app/(dashboard)/tickets/page';
 
 type SortConfig = { key: keyof Ticket; direction: 'asc' | 'desc' } | null;
 
 const PAGE_SIZE = 5;
 
-export default function PersonalTicketTable({ tickets }: { tickets: Ticket[] }) {
+export default function PersonalTicketTable({ tickets, userId }: { tickets: Ticket[]; userId?: string }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+
+  const fetchUnread = useCallback(async () => {
+    if (!userId) return;
+    const { data, error } = await supabaseBrowser.rpc('get_unread_stats', { current_user_id: userId });
+    if (data && !error) {
+      const counts: Record<string, number> = {};
+      data.forEach((item: any) => {
+        counts[String(item.ticket_id)] = Number(item.unread_count);
+      });
+      setUnreadCounts(counts);
+    }
+  }, [userId]);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, sortConfig]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 15000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchUnread();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('refresh-unread-stats', fetchUnread);
+
+    const channel = supabaseBrowser
+      .channel('personal-unread-watch')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, () => fetchUnread())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_reads' }, () => fetchUnread())
+      .subscribe();
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('refresh-unread-stats', fetchUnread);
+      supabaseBrowser.removeChannel(channel);
+    };
+  }, [userId, fetchUnread]);
 
   const handleSort = (key: keyof Ticket) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -113,12 +153,20 @@ export default function PersonalTicketTable({ tickets }: { tickets: Ticket[] }) 
               {paginatedTickets.map((ticket) => (
                 <tr key={ticket.id} className="group hover:bg-zinc-900/30 transition-colors">
                   <td className="px-6 py-4">
-                    <Link
-                      href={`/tickets/${ticket.id}`}
-                      className="font-medium text-zinc-200 hover:text-white hover:underline block transition-colors"
-                    >
-                      {ticket.title || 'Untitled Ticket'}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/tickets/${ticket.id}`}
+                        className="font-medium text-zinc-200 hover:text-white hover:underline block transition-colors"
+                      >
+                        {ticket.title || 'Untitled Ticket'}
+                      </Link>
+                      {unreadCounts[String(ticket.id)] > 0 && (
+                        <span className="flex-shrink-0 flex items-center gap-1 bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider animate-in fade-in zoom-in duration-300">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                          Unread
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs text-zinc-500 truncate max-w-[300px] block mt-0.5">
                       {ticket.description}
                     </span>

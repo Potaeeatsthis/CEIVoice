@@ -16,11 +16,11 @@ export type Ticket = {
 };
 
 /* ---------------- Fetch ONLY current user's tickets ---------------- */
-async function getUserTickets(): Promise<Ticket[]> {
+async function getUserTickets(): Promise<{ tickets: Ticket[]; userId: string }> {
   const cookieStore = await cookies();
   const userId = cookieStore.get('user_id')?.value;
 
-  if (!userId) return [];
+  if (!userId) return { tickets: [], userId: '' };
 
   const { data, error } = await supabaseAdmin
     .from('tickets')
@@ -30,15 +30,15 @@ async function getUserTickets(): Promise<Ticket[]> {
 
   if (error) {
     console.error(error.message);
-    return [];
+    return { tickets: [], userId };
   }
 
-  return data || [];
+  return { tickets: data || [], userId };
 }
 
 /* ---------------- Page ---------------- */
 export default async function TicketsPage() {
-  const tickets = await getUserTickets();
+  const { tickets, userId } = await getUserTickets();
 
   // Calculate Statistics
   const total = tickets.length;
@@ -72,7 +72,7 @@ export default async function TicketsPage() {
       </div>
 
       {/* Interactive Client Table */}
-      <PersonalTicketTable tickets={tickets} />
+      <PersonalTicketTable tickets={tickets} userId={userId} />
     </div>
   );
 }

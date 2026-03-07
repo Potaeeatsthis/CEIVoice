@@ -27,7 +27,8 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
     if (!userId) return;
     const { data, error } = await supabaseBrowser.rpc('get_unread_stats', { current_user_id: userId });
     if (data && !error) {
-      const total = data.reduce((sum: number, item: any) => sum + (item.unread_count || 0), 0);
+      // Count the number of TICKETS with unread messages, not total comment count
+      const total = data.filter((item: any) => (item.unread_count || 0) > 0).length;
       setTotalUnread(total);
     }
   }, [userId]);
