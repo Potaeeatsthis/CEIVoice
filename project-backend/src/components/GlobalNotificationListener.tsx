@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import { toast } from 'sonner';
@@ -10,6 +10,14 @@ import { toast } from 'sonner';
 export default function GlobalNotificationListener({ userId }: { userId: string }) {
   const router = useRouter();
   const pathname = usePathname();
+
+  // Use refs so the realtime callback always has the latest values
+  // WITHOUT tearing down and recreating the channel on every navigation
+  const pathnameRef = useRef(pathname);
+  const routerRef = useRef(router);
+
+  useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
+  useEffect(() => { routerRef.current = router; }, [router]);
 
   useEffect(() => {
     if (!userId) return;
@@ -33,11 +41,12 @@ export default function GlobalNotificationListener({ userId }: { userId: string 
           window.dispatchEvent(new CustomEvent('refresh-unread-stats'));
 
           // 3. Trigger Sonner Toast
-          // Determine the redirect path based on current role (admin or user)
-          const isUserAdmin = pathname?.startsWith('/admin');
-          const isUserAssignee = pathname?.startsWith('/assignee');
-          
-          let targetUrl = `/user/tickets/${newComment.ticket_id}`;
+          // Read the LATEST pathname from the ref (not the stale closure)
+          const currentPath = pathnameRef.current;
+          const isUserAdmin = currentPath?.startsWith('/admin');
+          const isUserAssignee = currentPath?.startsWith('/assignee');
+
+          let targetUrl = `/tickets/${newComment.ticket_id}`;
           if (isUserAdmin) targetUrl = `/admin/tickets/${newComment.ticket_id}`;
           if (isUserAssignee) targetUrl = `/assignee/tickets/${newComment.ticket_id}`;
 
@@ -45,18 +54,20 @@ export default function GlobalNotificationListener({ userId }: { userId: string 
             description: newComment.message || 'New message received',
             action: {
               label: 'View',
-              onClick: () => router.push(targetUrl),
+              onClick: () => routerRef.current.push(targetUrl),
             },
             duration: 5000,
           });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Global notification realtime status:', status);
+      });
 
     return () => {
       supabaseBrowser.removeChannel(channel);
     };
-  }, [userId, router, pathname]);
+  }, [userId]); // Only depend on userId — channel stays stable across navigations
 
   return null;
 }

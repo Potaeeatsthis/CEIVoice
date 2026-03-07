@@ -5,7 +5,6 @@ import { verifyJWT } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 import Sidebar from '@/components/Sidebar';
 import GlobalNotificationListener from '@/components/GlobalNotificationListener';
-import { Toaster } from '@/components/SonnerToaster';
 
 async function getUser() {
   const cookieStore = await cookies();
@@ -51,8 +50,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
           {children}
         </div>
       </main>
-
-      <Toaster />
     </div>
   );
 }
