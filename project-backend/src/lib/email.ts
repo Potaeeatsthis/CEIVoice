@@ -219,3 +219,26 @@ export async function sendPasswordResetEmail(
     react: ResetPasswordEmail({ name, link }),
   });
 }
+
+// ── Password changed notification ─────────────────────────────────────────────
+
+export async function sendPasswordChangedEmail(
+  userEmail: string,
+  name: string
+) {
+  if (!process.env.RESEND_API_KEY) return;
+
+  await resend.emails.send({
+    from: 'CEiVoice Security <support@ceivoice.com>',
+    to: userEmail,
+    subject: 'Your CEiVoice password was changed',
+    html: `
+      <div style="font-family: sans-serif; color: #333;">
+        <h2>Password Changed Successfully</h2>
+        <p>Hi ${name || 'there'},</p>
+        <p>This is a confirmation that the password for your CEIVoice account was recently changed.</p>
+        <p>If you did not authorize this change, please contact an administrator immediately.</p>
+      </div>
+    `,
+  });
+}

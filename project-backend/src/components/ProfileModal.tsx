@@ -3,6 +3,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 type UserProfile = {
@@ -21,11 +22,13 @@ type Props = {
   userName: string;
   userRole: string;
   userInitial: string;
+  onProfileUpdate?: (name: string, avatarUrl: string | null) => void;
 };
 
 type Tab = 'profile' | 'security';
 
-export default function ProfileModal({ isOpen, onClose, userId, userName, userRole, userInitial }: Props) {
+export default function ProfileModal({ isOpen, onClose, userId, userName, userRole, userInitial, onProfileUpdate }: Props) {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>('profile');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
@@ -108,7 +111,6 @@ export default function ProfileModal({ isOpen, onClose, userId, userName, userRo
         body: JSON.stringify({
           full_name: fullName,
           display_name: displayName || null,
-          email,
           avatar_url: avatarPreview,
         }),
       });
@@ -117,6 +119,14 @@ export default function ProfileModal({ isOpen, onClose, userId, userName, userRo
       if (!res.ok) throw new Error(data.error || 'Update failed');
 
       setProfile(data.user);
+      
+      // Notify parent to immediately update the UI
+      const updatedName = data.user.full_name || data.user.display_name || userName;
+      onProfileUpdate?.(updatedName, data.user.avatar_url);
+      
+      // Refresh Next.js server components seamlessly
+      router.refresh();
+      
       toast.success('Profile updated successfully');
     } catch (err: any) {
       toast.error(err.message || 'Failed to update profile');
@@ -315,9 +325,10 @@ export default function ProfileModal({ isOpen, onClose, userId, userName, userRo
                   <Field
                     label="Email Address"
                     value={email}
-                    onChange={setEmail}
+                    onChange={() => {}}
                     placeholder="your@email.com"
                     type="email"
+                    disabled
                   />
                 </>
               )}
@@ -396,7 +407,7 @@ export default function ProfileModal({ isOpen, onClose, userId, userName, userRo
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function Field({
-  label, value, onChange, placeholder, type = 'text', required,
+  label, value, onChange, placeholder, type = 'text', required, disabled
 }: {
   label: string;
   value: string;
@@ -404,6 +415,7 @@ function Field({
   placeholder?: string;
   type?: string;
   required?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div className="space-y-1.5">
@@ -415,7 +427,8 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
+        disabled={disabled}
+        className={`w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all ${disabled ? 'opacity-50 cursor-not-allowed bg-zinc-900/50' : ''}`}
       />
     </div>
   );

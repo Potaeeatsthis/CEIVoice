@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifyJWT, AUTH_COOKIE } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
+import { sendPasswordChangedEmail } from '@/lib/email'; 
 
 export async function GET(request: NextRequest) {
   try {
@@ -91,6 +92,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Password change
+    let passwordWasChanged = false;
+
     if (new_password !== undefined) {
       if (!old_password) {
         return NextResponse.json({ error: 'Current password is required' }, { status: 400 });
@@ -120,6 +123,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       updates.password_hash = await bcrypt.hash(new_password, 12);
+      passwordWasChanged = true;
     }
 
     const { data: updated, error } = await supabaseAdmin
@@ -132,6 +136,15 @@ export async function PATCH(request: NextRequest) {
     if (error) {
       console.error('PATCH /me error:', error);
       return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+    }
+
+    // Send email notification if the password was successfully changed
+    if (passwordWasChanged && updated?.email) {
+      try {
+        await sendPasswordChangedEmail(updated.email, updated.full_name || 'User');
+      } catch (emailErr) {
+        console.error('Failed to send password change confirmation email:', emailErr);
+      }
     }
 
     return NextResponse.json({ success: true, user: updated });

@@ -3,8 +3,8 @@
 'use client';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import ProfileModal from '@/components/ProfileModal';
 
@@ -18,6 +18,10 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
   const [totalUnread, setTotalUnread] = useState(0);
   const [draftCount, setDraftCount] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
+
+  // Local state for real-time updates
+  const [localName, setLocalName] = useState(userName);
+  const [localAvatar, setLocalAvatar] = useState<string | null>(null);
 
   const fetchStats = useCallback(async () => {
     if (!userId) return;
@@ -35,6 +39,24 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
       .eq('status', 'DRAFT');
     setDraftCount(count || 0);
   }, []);
+
+  // Fetch initial profile data on mount to get the avatar
+  useEffect(() => {
+    if (!userId) return;
+    const fetchInitialProfile = async () => {
+      try {
+        const res = await fetch('/api/users/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.full_name || data.display_name) setLocalName(data.full_name || data.display_name);
+          if (data.avatar_url) setLocalAvatar(data.avatar_url);
+        }
+      } catch (e) {
+        console.error('Failed to fetch initial profile', e);
+      }
+    };
+    fetchInitialProfile();
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -75,6 +97,8 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
     fetchDraftCount();
   }, [pathname, fetchStats, fetchDraftCount]);
 
+  const displayInitial = localName ? localName.charAt(0).toUpperCase() : userInitial;
+
   return (
     <>
       <aside className="w-64 flex flex-col border-r border-zinc-800 bg-zinc-950/50 h-full">
@@ -96,10 +120,14 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
           {isAdmin    && <AdminMenu    pathname={pathname} totalUnread={totalUnread} draftCount={draftCount} />}
           {isAssignee && <AssigneeMenu pathname={pathname} totalUnread={totalUnread} />}
           {isAssignee && <PersonalMenu pathname={pathname} />}
-          {isUser     && <UserMenu     pathname={pathname} totalUnread={totalUnread} />}
+          {isUser && (
+            <Suspense fallback={<UserMenu pathname={pathname} totalUnread={totalUnread} refParam={null} />}>
+              <UserMenuWrapper pathname={pathname} totalUnread={totalUnread} />
+            </Suspense>
+          )}
         </nav>
 
-        {/* ── Profile footer — clickable for all roles ── */}
+        {/* ── Profile footer ── */}
         <div className="p-3 border-t border-zinc-800 bg-zinc-900/30">
           <button
             onClick={() => userId && setProfileOpen(true)}
@@ -107,11 +135,15 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
             className="w-full flex items-center gap-3 px-2 py-2 rounded-lg group hover:bg-zinc-800/60 transition-all duration-200 disabled:cursor-default text-left"
             title="Edit profile"
           >
-            <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white border border-zinc-700 flex-shrink-0 group-hover:border-zinc-600 transition-colors">
-              {userInitial}
+            <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white border border-zinc-700 flex-shrink-0 group-hover:border-zinc-600 transition-colors overflow-hidden">
+              {localAvatar ? (
+                <img src={localAvatar} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                displayInitial
+              )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{userName}</p>
+              <p className="text-sm font-medium text-white truncate">{localName}</p>
               <p className="text-xs text-zinc-500 truncate capitalize">{userRole.toLowerCase()}</p>
             </div>
             {userId && (
@@ -130,9 +162,13 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
           isOpen={profileOpen}
           onClose={() => setProfileOpen(false)}
           userId={userId}
-          userName={userName}
+          userName={localName}
           userRole={userRole}
-          userInitial={userInitial}
+          userInitial={displayInitial}
+          onProfileUpdate={(newName, newAvatar) => {
+            setLocalName(newName);
+            setLocalAvatar(newAvatar);
+          }}
         />
       )}
     </>
@@ -196,15 +232,25 @@ function PersonalMenu({ pathname }: { pathname: string }) {
 
 // USER
 
-function UserMenu({ pathname, totalUnread }: { pathname: string; totalUnread: number }) {
+function UserMenuWrapper({ pathname, totalUnread }: { pathname: string; totalUnread: number }) {
+  const searchParams = useSearchParams();
+  const refParam = searchParams.get('ref');
+  return <UserMenu pathname={pathname} totalUnread={totalUnread} refParam={refParam} />;
+}
+
+function UserMenu({ pathname, totalUnread, refParam }: { pathname: string; totalUnread: number; refParam: string | null }) {
+  const isCommunity = pathname === '/user/community' || (pathname.startsWith('/tickets/') && refParam === 'community');
+  const isFollowing = pathname === '/user/following' || (pathname.startsWith('/tickets/') && refParam === 'following');
+  const isPersonal = pathname === '/tickets' || (pathname.startsWith('/tickets/') && pathname !== '/tickets/create' && !refParam);
+
   return (
     <>
       <div className="mb-6 space-y-1">
         <div className="px-3 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Community</div>
-        <SidebarLink href="/user/community" label="Tickets" currentPath={pathname}
+        <SidebarLink href="/user/community" label="Tickets" currentPath={pathname} forceActive={isCommunity}
           icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
         />
-        <SidebarLink href="/user/following" label="Following" currentPath={pathname}
+        <SidebarLink href="/user/following" label="Following" currentPath={pathname} forceActive={isFollowing}
           icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>}
         />
       </div>
@@ -213,7 +259,7 @@ function UserMenu({ pathname, totalUnread }: { pathname: string; totalUnread: nu
         <SidebarLink href="/tickets/create" label="Upload" currentPath={pathname}
           icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>}
         />
-        <SidebarLink href="/tickets" label="Tickets" currentPath={pathname} badgeCount={totalUnread}
+        <SidebarLink href="/tickets" label="Tickets" currentPath={pathname} badgeCount={totalUnread} forceActive={isPersonal}
           icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>}
         />
       </div>
@@ -223,8 +269,8 @@ function UserMenu({ pathname, totalUnread }: { pathname: string; totalUnread: nu
 
 // Shared
 
-function SidebarLink({ href, icon, label, currentPath, badgeCount }: { href: string; icon: React.ReactNode; label: string; currentPath: string, badgeCount?: number }) {
-  const isActive = currentPath === href || (href !== '/' && currentPath.startsWith(href));
+function SidebarLink({ href, icon, label, currentPath, badgeCount, forceActive }: { href: string; icon: React.ReactNode; label: string; currentPath: string, badgeCount?: number, forceActive?: boolean }) {
+  const isActive = forceActive !== undefined ? forceActive : (currentPath === href || (href !== '/' && currentPath.startsWith(href)));
   return (
     <Link
       href={href}
