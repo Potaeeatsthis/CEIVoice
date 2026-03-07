@@ -211,14 +211,23 @@ export async function sendPasswordResetEmail(
   name: string,
   link: string
 ) {
-  if (!process.env.RESEND_API_KEY) return;
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY is not configured');
+  }
 
-  await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from: 'CEiVoice Security <support@ceivoice.com>',
     to: userEmail,
     subject: 'Reset your CEiVoice password',
     react: ResetPasswordEmail({ name, link }),
   });
+
+  if (error) {
+    console.error('Resend API error (password reset):', error);
+    throw new Error(`Failed to send reset email: ${error.message}`);
+  }
+
+  return data;
 }
 
 // ── Password changed notification ─────────────────────────────────────────────
