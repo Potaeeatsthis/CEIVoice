@@ -71,12 +71,12 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
     }
   };
 
-  const inputBase = "w-full bg-black/20 border border-zinc-800 text-zinc-200 placeholder:text-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-200";
+  const inputBase = "w-full bg-black/20 border border-zinc-800 text-zinc-200 placeholder:text-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-white-500/50 focus:ring-4 focus:ring-white-500/10 transition-all duration-200";
   const labelBase = "flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1";
   const cardBase = "bg-zinc-900/30 backdrop-blur-md border border-zinc-800/60 rounded-2xl p-6 shadow-sm";
 
   return (
-    <div className="max-w-6xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
+    <div className="max-w-6xl mx-auto h-[calc(100vh-64px)] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 relative overflow-hidden">
       
       {toast && (
         <Toast 
@@ -103,18 +103,18 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-zinc-950/50 p-1.5 rounded-xl border border-zinc-800/50 backdrop-blur-sm shadow-xl">
+        <div className="flex items-center gap-2 bg-zinc-950/50 p-1.5 rounded-xl border border-zinc-800/50 backdrop-blur-sm shadow-xl">
           <button 
             onClick={() => handleAction('SAVE')} 
             disabled={loading}
-            className="px-5 py-2.5 text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all disabled:opacity-50 whitespace-nowrap"
           >
             Save Changes
           </button>
           <button 
             onClick={() => handleAction('SUBMIT')} 
             disabled={loading}
-            className="px-5 py-2.5 text-xs font-bold text-black bg-emerald-500 hover:bg-emerald-400 rounded-lg shadow-[0_0_25px_rgba(16,185,129,0.4)] transition-all disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2 text-xs font-semibold text-black bg-white hover:bg-zinc-100 rounded-[10px] transition-all disabled:opacity-50 flex items-center justify-center gap-2 whitespace-nowrap"
           >
             {loading ? 'Processing...' : (
                 <>
@@ -126,15 +126,15 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1 overflow-hidden min-h-0 pb-6" style={{ gridAutoRows: '1fr' }}>
         
         {/* --- LEFT: MAIN CONTENT (8 cols) --- */}
-        <div className="lg:col-span-8 space-y-6">
-          <div className={`${cardBase} flex flex-col h-full`}>
+        <div className="lg:col-span-8 flex flex-col min-h-0 h-full">
+          <div className={`${cardBase} flex flex-col h-full min-h-0`}>
             {/* Title Input */}
             <div className="mb-8">
                <label className={labelBase}>
-                 <svg className="w-3 h-3 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                 <svg className="w-3 h-3 text-white-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                  AI Suggested Title
                </label>
                <input 
@@ -152,7 +152,7 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
                 <svg className="w-3 h-3 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
                 Description & Details
               </label>
-              <div className="relative flex-1">
+              <div className="relative flex-1 min-h-0">
                 <textarea 
                   value={formData.description} 
                   onChange={(e) => handleChange('description', e.target.value)}
@@ -167,10 +167,10 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
         </div>
 
         {/* --- RIGHT: SIDEBAR (4 cols) --- */}
-        <div className="lg:col-span-4 space-y-6">
+        <div className="lg:col-span-4 flex flex-col min-h-0 gap-6">
           
           {/* Metadata Card */}
-          <div className={`${cardBase} space-y-6`}>
+          <div className={`${cardBase} space-y-6 flex-1`}>
             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-4 border-b border-zinc-800 pb-2">
               Configuration
             </h3>
@@ -255,7 +255,7 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
              <div className="flex items-center justify-between gap-4">
                
                <div className="flex items-center gap-3 min-w-0">
-                 <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white shadow-lg shrink-0">
+                 <div className="h-10 w-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-sm font-bold text-zinc-300 shrink-0">
                    {ticket.created_by_user.email.charAt(0).toUpperCase()}
                  </div>
                  <div className="min-w-0">
