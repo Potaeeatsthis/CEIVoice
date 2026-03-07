@@ -5,6 +5,7 @@ import { verifyJWT } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 import Sidebar from '@/components/Sidebar';
 import GlobalNotificationListener from '@/components/GlobalNotificationListener';
+import { Toaster } from '@/components/SonnerToaster';
 
 async function getUser() {
   const cookieStore = await cookies();
@@ -13,8 +14,6 @@ async function getUser() {
 
   if (!token) return guestUser;
 
-  // Always derive identity from the JWT — never trust user_role/user_id cookies
-  // This ensures switching accounts always reflects the correct role immediately
   const payload = await verifyJWT(token);
   if (!payload) return guestUser;
 
@@ -52,6 +51,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
           {children}
         </div>
       </main>
+
+      <Toaster />
     </div>
   );
 }
