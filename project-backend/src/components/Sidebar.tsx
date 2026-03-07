@@ -12,6 +12,7 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
 
   const isAdmin = userRole === 'ADMIN';
   const isAssignee = userRole === 'ASSIGNEE';
+  const isUser = userRole === 'USER';
 
   const [totalUnread, setTotalUnread] = useState(0);
   const [draftCount, setDraftCount] = useState(0);
@@ -98,7 +99,8 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {isAdmin && <AdminMenu pathname={pathname} totalUnread={totalUnread} draftCount={draftCount} />}
         {isAssignee && <AssigneeMenu pathname={pathname} totalUnread={totalUnread} />}
-        {!isAdmin && <PersonalMenu pathname={pathname} totalUnread={(!isAssignee) ? totalUnread : undefined} />}
+        {isAssignee && <PersonalMenu pathname={pathname} />}
+        {isUser && <UserMenu pathname={pathname} totalUnread={totalUnread} />}
       </nav>
 
       <div className="p-4 border-t border-zinc-800 bg-zinc-900/30">
@@ -115,6 +117,8 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
     </aside>
   );
 }
+
+// Admin
 
 function AdminMenu({ pathname, totalUnread, draftCount }: { pathname: string, totalUnread: number, draftCount: number }) {
   return (
@@ -136,6 +140,8 @@ function AdminMenu({ pathname, totalUnread, draftCount }: { pathname: string, to
   );
 }
 
+// Assignee
+
 function AssigneeMenu({ pathname, totalUnread }: { pathname: string, totalUnread: number }) {
   return (
     <div className="mb-6 space-y-1">
@@ -146,7 +152,6 @@ function AssigneeMenu({ pathname, totalUnread }: { pathname: string, totalUnread
       <SidebarLink href="/assignee/reports" label="My Performance" currentPath={pathname}
         icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
       />
-
       <SidebarLink href="/assignee/history" label="History Log" currentPath={pathname}
         icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
       />
@@ -154,11 +159,13 @@ function AssigneeMenu({ pathname, totalUnread }: { pathname: string, totalUnread
   );
 }
 
-function PersonalMenu({ pathname, totalUnread }: { pathname: string, totalUnread?: number }) {
+// ─── Assignee's personal section (unchanged) ─────────────────────────────────
+
+function PersonalMenu({ pathname }: { pathname: string }) {
   return (
     <div className="space-y-1">
       <div className="px-3 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Personal</div>
-      <SidebarLink href="/tickets" label="My Tickets" currentPath={pathname} badgeCount={totalUnread}
+      <SidebarLink href="/tickets" label="My Tickets" currentPath={pathname}
         icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>}
       />
       <SidebarLink href="/tickets/create" label="New Request" currentPath={pathname}
@@ -167,6 +174,71 @@ function PersonalMenu({ pathname, totalUnread }: { pathname: string, totalUnread
     </div>
   );
 }
+
+// USER
+
+function UserMenu({ pathname, totalUnread }: { pathname: string; totalUnread: number }) {
+  return (
+    <>
+      {/* Community Section */}
+      <div className="mb-6 space-y-1">
+        <div className="px-3 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+          Community
+        </div>
+        <SidebarLink
+          href="/user/community"
+          label="Tickets"
+          currentPath={pathname}
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          }
+        />
+        <SidebarLink
+          href="/user/following"
+          label="Following"
+          currentPath={pathname}
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+          }
+        />
+      </div>
+
+      {/* Personal Section */}
+      <div className="space-y-1">
+        <div className="px-3 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+          Personal
+        </div>
+        <SidebarLink
+          href="/tickets/create"
+          label="Upload"
+          currentPath={pathname}
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+          }
+        />
+        <SidebarLink
+          href="/tickets"
+          label="Tickets"
+          currentPath={pathname}
+          badgeCount={totalUnread}
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+            </svg>
+          }
+        />
+      </div>
+    </>
+  );
+}
+
+// Shared Link
 
 function SidebarLink({ href, icon, label, currentPath, badgeCount }: { href: string; icon: React.ReactNode; label: string; currentPath: string, badgeCount?: number }) {
   const isActive = currentPath === href || (href !== '/' && currentPath.startsWith(href));

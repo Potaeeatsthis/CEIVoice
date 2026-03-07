@@ -47,7 +47,7 @@ export async function middleware(request: NextRequest) {
     return addCors(NextResponse.next());
   }
 
-  //  Route staff away from user-facing pages
+  // Route staff away from user-facing pages
   if (pathname.startsWith('/tickets')) {
     if (userRole === 'ADMIN') {
       return NextResponse.redirect(new URL('/admin/tickets', request.url));
@@ -68,6 +68,19 @@ export async function middleware(request: NextRequest) {
     userRole === 'USER'
   ) {
     return NextResponse.redirect(new URL('/tickets', request.url));
+  }
+
+  // Protect /user/* — must be logged in and must be USER role
+  if (pathname.startsWith('/user')) {
+    if (!hasToken) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+    if (userRole === 'ADMIN') {
+      return NextResponse.redirect(new URL('/admin/tickets', request.url));
+    }
+    if (userRole === 'ASSIGNEE') {
+      return NextResponse.redirect(new URL('/assignee/tickets', request.url));
+    }
   }
 
   // Protected API routes: verify JWT
@@ -113,5 +126,6 @@ export const config = {
     '/admin/:path*',
     '/assignee/:path*',
     '/tickets/:path*',
+    '/user/:path*',
   ],
 };
