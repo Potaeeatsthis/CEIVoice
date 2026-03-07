@@ -180,7 +180,7 @@ export default function CommunityTicketTable({ tickets, initialFollowedIds }: Pr
                         <button
                           onClick={() => toggleFollow(ticket.id)}
                           disabled={isLoading}
-                          className={`text-xs font-medium px-2.5 py-1 rounded border transition-all duration-150
+                          className={`whitespace-nowrap text-xs font-medium px-2.5 py-1 rounded border transition-all duration-150
                             ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
                             ${isFollowing
                               ? 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700 hover:text-white'
