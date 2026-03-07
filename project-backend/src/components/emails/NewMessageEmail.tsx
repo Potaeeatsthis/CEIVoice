@@ -1,4 +1,4 @@
-// src/components/emails/NotificationEmail.tsx
+// src/components/emails/NewMessageEmail.tsx
 
 import {
   Body,
@@ -12,60 +12,66 @@ import {
 } from '@react-email/components';
 import * as React from 'react';
 
-interface NotificationEmailProps {
-  userName: string;
+interface NewMessageEmailProps {
+  recipientName: string;
+  senderName: string;
+  ticketId: string;
   ticketTitle: string;
-  deadline: string;
+  messageContent: string;
   ticketUrl: string;
 }
 
-export const NotificationEmail = ({
-  userName,
+export const NewMessageEmail = ({
+  recipientName,
+  senderName,
+  ticketId,
   ticketTitle,
-  deadline,
+  messageContent,
   ticketUrl,
-}: NotificationEmailProps) => {
+}: NewMessageEmailProps) => {
   return (
     <Html>
       <Head />
-      <Preview>Reminder: Ticket deadline is tomorrow</Preview>
+      <Preview>New message in Ticket #{ticketId} from {senderName}</Preview>
       <Body style={main}>
         <Container style={container}>
           <Section style={header}>
-            <Text style={headerText}>CEIVOICE SYSTEM</Text>
+            <Text style={headerText}>CEIVOICE SUPPORT</Text>
           </Section>
 
           <Section style={body}>
-            <Text style={badge}>Deadline Reminder</Text>
+            <Text style={badge}>New Message</Text>
 
-            <Text style={title}>Upcoming Ticket Deadline</Text>
+            <Text style={title}>You have a new message</Text>
 
-            <Text style={text}>Hello {userName},</Text>
+            <Text style={text}>Hello {recipientName},</Text>
 
             <Text style={text}>
-              This is a reminder that the following ticket is due in{' '}
-              <strong style={{ color: '#ffffff' }}>1 day</strong>. Please
-              ensure it is completed before the deadline to avoid automatic
-              failure.
+              <strong style={{ color: '#ffffff' }}>{senderName}</strong> sent a
+              new message on your ticket.
             </Text>
 
+            {/* Ticket details */}
             <Section style={detailsBox}>
-              <Text style={detailLabel}>TICKET SUBJECT</Text>
+              <Text style={detailLabel}>TICKET ID</Text>
+              <Text style={detailValue}>#{ticketId}</Text>
+
+              <Text style={detailLabel}>SUBJECT</Text>
               <Text style={detailValue}>{ticketTitle}</Text>
 
-              <Text style={detailLabel}>DEADLINE</Text>
-              <Text style={detailValueLast}>{deadline}</Text>
+              <Text style={detailLabel}>MESSAGE</Text>
+              <Text style={messageBox}>"{messageContent}"</Text>
             </Section>
 
             <Section style={{ marginTop: '24px', marginBottom: '32px' }}>
               <Button href={ticketUrl} style={button}>
-                View Ticket
+                View Conversation
               </Button>
             </Section>
 
             <Text style={subtext}>
-              This is an automated reminder from CEIVoice. If you have already
-              handled this ticket, please disregard this message.
+              To reduce inbox clutter, we won't email you again for this ticket
+              for at least 10 minutes.
             </Text>
           </Section>
 
@@ -80,7 +86,7 @@ export const NotificationEmail = ({
   );
 };
 
-export default NotificationEmail;
+export default NewMessageEmail;
 
 const main = {
   backgroundColor: '#0a0a0a',
@@ -110,8 +116,8 @@ const headerText = {
 const body = { padding: '32px' };
 const badge = {
   display: 'inline-block',
-  backgroundColor: '#4d3800',
-  color: '#fbbf24',
+  backgroundColor: '#004d28',
+  color: '#00e676',
   padding: '6px 14px',
   borderRadius: '9999px',
   fontSize: '13px',
@@ -140,7 +146,7 @@ const detailsBox = {
   backgroundColor: '#262626',
   borderRadius: '6px',
   padding: '24px',
-  borderLeft: '4px solid #fbbf24',
+  borderLeft: '4px solid #00e676',
   margin: '32px 0',
 };
 const detailLabel = {
@@ -154,13 +160,17 @@ const detailLabel = {
 const detailValue = {
   margin: '0 0 20px 0',
   color: '#ffffff',
-  fontSize: '16px',
+  fontSize: '15px',
 };
-const detailValueLast = {
+const messageBox = {
   margin: 0,
-  color: '#fbbf24',
-  fontSize: '16px',
-  fontWeight: 'bold',
+  color: '#d4d4d4',
+  fontSize: '15px',
+  fontStyle: 'italic',
+  lineHeight: '1.6',
+  backgroundColor: '#1a1a1a',
+  padding: '12px 16px',
+  borderRadius: '4px',
 };
 const button = {
   backgroundColor: '#00e676',
