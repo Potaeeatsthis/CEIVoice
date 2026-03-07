@@ -458,36 +458,36 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
           
           {/* FINAL RESOLUTION OR FAILURE REASON DISPLAY */}
           {ticket.status === 'SOLVED' && ticket.ai_solution && (
-            <div className={`flex gap-3 ${isAssignee ? 'flex-row-reverse' : ''}`}>
+            <div className={`flex gap-3 ${isAssignee ? 'flex-row-reverse' : 'flex-row'}`}>
               <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 flex items-center justify-center text-xs font-bold">
                 {allUsers.find(u => u.id === ticket.assigned_to)?.full_name?.charAt(0) || 'A'}
               </div>
-              <div className="flex flex-col max-w-[75%] items-start">
+              <div className={`flex flex-col max-w-[75%] ${isAssignee ? 'items-end' : 'items-start'}`}>
                 <div className="flex items-center gap-2 mb-1 px-1">
-                  <span className="text-xs font-medium text-zinc-400">
+                  {!isAssignee && <span className="text-xs font-medium text-zinc-400">
                     {allUsers.find(u => u.id === ticket.assigned_to)?.full_name || 'Assignee'}
-                  </span>
+                  </span>}
                   <span className="text-[10px] text-zinc-600">Final Resolution</span>
                 </div>
-                <div className="px-4 py-2.5 bg-emerald-900/30 border border-emerald-700 text-emerald-200 rounded-2xl rounded-tr-none text-sm whitespace-pre-wrap">
+                <div className={`px-4 py-2.5 bg-emerald-900/30 border border-emerald-700 text-emerald-200 rounded-2xl text-sm whitespace-pre-wrap ${isAssignee ? 'rounded-tr-none' : 'rounded-tl-none'}`}>
                   {ticket.ai_solution}
                 </div>
               </div>
             </div>
           )}
           {ticket.status === 'FAILED' && ticket.failure_reason && (
-            <div className={`flex gap-3 ${isAssignee ? 'flex-row-reverse' : ''}`}>
+            <div className={`flex gap-3 ${isAssignee ? 'flex-row-reverse' : 'flex-row'}`}>
               <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 flex items-center justify-center text-xs font-bold">
                 {allUsers.find(u => u.id === ticket.assigned_to)?.full_name?.charAt(0) || 'A'}
               </div>
-              <div className="flex flex-col max-w-[75%] items-start">
+              <div className={`flex flex-col max-w-[75%] ${isAssignee ? 'items-end' : 'items-start'}`}>
                 <div className="flex items-center gap-2 mb-1 px-1">
-                  <span className="text-xs font-medium text-zinc-400">
+                  {!isAssignee && <span className="text-xs font-medium text-zinc-400">
                     {allUsers.find(u => u.id === ticket.assigned_to)?.full_name || 'Assignee'}
-                  </span>
+                  </span>}
                   <span className="text-[10px] text-red-500 font-bold uppercase tracking-wide">Failure Reason</span>
                 </div>
-                <div className="px-4 py-2.5 bg-red-900/30 border border-red-700 text-red-200 rounded-2xl rounded-tr-none text-sm whitespace-pre-wrap">
+                <div className={`px-4 py-2.5 bg-red-900/30 border border-red-700 text-red-200 rounded-2xl text-sm whitespace-pre-wrap ${isAssignee ? 'rounded-tr-none' : 'rounded-tl-none'}`}>
                   {ticket.failure_reason}
                 </div>
               </div>

@@ -248,7 +248,7 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
   const priorityLevel = { URGENT: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }[ticket.priority] ?? 1;
 
   return (
-    <div className="flex gap-6 h-full">
+    <div className="flex gap-6 h-[calc(100vh-140px)]">
 
       {/* ── Left: Chat ─────────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-h-0 rounded-xl border border-zinc-800 bg-zinc-950 shadow-sm overflow-hidden">
@@ -273,16 +273,16 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
         <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-black/20" style={{ maxHeight: '480px' }}>
           
           {/* ORIGINAL REQUEST */}
-          <div className="flex gap-3">
-            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-xs font-bold border border-indigo-500/30">
+          <div className={`flex gap-3 ${isOwner ? 'flex-row-reverse' : 'flex-row'}`}>
+            <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border ${isOwner ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'}`}>
               {ticket.created_by_user?.full_name?.charAt(0).toUpperCase() || 'U'}
             </div>
-            <div className="flex flex-col max-w-[85%]">
+            <div className={`flex flex-col max-w-[85%] ${isOwner ? 'items-end' : 'items-start'}`}>
               <div className="flex items-baseline gap-2 mb-1">
-                <span className="text-sm font-medium text-zinc-300">{ticket.created_by_user?.full_name || 'User'}</span>
+                {!isOwner && <span className="text-sm font-medium text-zinc-300">{ticket.created_by_user?.full_name || 'User'}</span>}
                 <span className="text-[10px] text-zinc-600">Original Request</span>
               </div>
-              <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-2xl rounded-tl-none px-4 py-3 text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap">
+              <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-2xl px-4 py-3 text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap ${isOwner ? 'rounded-tr-none' : 'rounded-tl-none'}`}>
                 {ticket.description}
                 {ticket.img && ticket.img.map((url, idx) => (
                   <AttachmentPreview key={idx} url={url} />
@@ -413,7 +413,7 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
       </div>
 
       {/* ── Right: Info panel ──────────────────────────────────────────────── */}
-      <div className="w-64 flex-shrink-0 space-y-4">
+      <div className="w-80 flex-shrink-0 space-y-4 overflow-y-auto">
 
         {/* Status & Priority */}
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-4">
