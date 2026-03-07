@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import PriorityIcon from '@/components/PriorityIcon';
 
@@ -22,33 +22,22 @@ type Props = {
 };
 
 export default function CommunityTicketTable({ tickets, initialFollowedIds }: Props) {
-  const [followedIds, setFollowedIds] = useState<Set<number>>(
-    new Set(initialFollowedIds)
-  );
-  const [loadingIds, setLoadingIds] = useState<Set<number>>(new Set());
+  const [followedIds, setFollowedIds] = useState<Set<number>>(new Set(initialFollowedIds));
+  const [loadingIds,  setLoadingIds]  = useState<Set<number>>(new Set());
 
   async function toggleFollow(ticketId: number) {
     const isFollowing = followedIds.has(ticketId);
-
     setLoadingIds((prev) => new Set(prev).add(ticketId));
 
     try {
       const res = await fetch(`/api/tickets/${ticketId}/follow`, {
         method: isFollowing ? 'DELETE' : 'POST',
       });
-
-      if (!res.ok) {
-        console.error('Follow toggle failed');
-        return;
-      }
+      if (!res.ok) return;
 
       setFollowedIds((prev) => {
         const next = new Set(prev);
-        if (isFollowing) {
-          next.delete(ticketId);
-        } else {
-          next.add(ticketId);
-        }
+        isFollowing ? next.delete(ticketId) : next.add(ticketId);
         return next;
       });
     } catch (err) {
@@ -86,46 +75,40 @@ export default function CommunityTicketTable({ tickets, initialFollowedIds }: Pr
         <tbody className="divide-y divide-zinc-800">
           {tickets.map((ticket) => {
             const isFollowing = followedIds.has(ticket.id);
-            const isLoading = loadingIds.has(ticket.id);
+            const isLoading   = loadingIds.has(ticket.id);
 
             return (
-              <tr
-                key={ticket.id}
-                className="group hover:bg-zinc-900/30 transition-colors"
-              >
-                {/* Subject */}
+              <tr key={ticket.id} className="group hover:bg-zinc-900/30 transition-colors">
+
+                {/* Subject — title is a clickable link */}
                 <td className="px-6 py-4">
-                  <span className="font-medium text-zinc-200 block">
+                  <Link
+                    href={`/tickets/${ticket.id}`}
+                    className="font-medium text-zinc-200 hover:text-white hover:underline block transition-colors"
+                  >
                     {ticket.title || 'Untitled Ticket'}
-                  </span>
-                  <span className="text-xs text-zinc-500 truncate max-w-[240px] block">
+                  </Link>
+                  <span className="text-xs text-zinc-500 truncate max-w-[240px] block mt-0.5">
                     {ticket.description}
                   </span>
                 </td>
 
-                {/* Category */}
                 <td className="px-6 py-4">
-                  <span className="text-xs text-zinc-400">
-                    {ticket.category || '—'}
-                  </span>
+                  <span className="text-xs text-zinc-400">{ticket.category || '—'}</span>
                 </td>
 
-                {/* Status */}
                 <td className="px-6 py-4">
                   <StatusBadge status={ticket.status} />
                 </td>
 
-                {/* Priority */}
                 <td className="px-6 py-4">
                   <PriorityIcon priority={ticket.priority} />
                 </td>
 
-                {/* Date */}
                 <td className="px-6 py-4 text-right text-zinc-500 text-xs whitespace-nowrap">
                   {new Date(ticket.created_at).toLocaleDateString()}
                 </td>
 
-                {/* Actions */}
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-3">
                     <button
@@ -133,19 +116,13 @@ export default function CommunityTicketTable({ tickets, initialFollowedIds }: Pr
                       disabled={isLoading}
                       className={`text-xs font-medium px-2.5 py-1 rounded border transition-all duration-150
                         ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
-                        ${
-                          isFollowing
-                            ? 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700 hover:text-white'
-                            : 'bg-blue-950/40 text-blue-400 border-blue-900 hover:bg-blue-900/40 hover:text-blue-300'
+                        ${isFollowing
+                          ? 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700 hover:text-white'
+                          : 'bg-blue-950/40 text-blue-400 border-blue-900 hover:bg-blue-900/40 hover:text-blue-300'
                         }`}
                     >
-                      {isLoading
-                        ? '...'
-                        : isFollowing
-                        ? 'Unfollow'
-                        : '+ Follow'}
+                      {isLoading ? '…' : isFollowing ? 'Unfollow' : '+ Follow'}
                     </button>
-
                     <Link
                       href={`/tickets/${ticket.id}`}
                       className="text-blue-400 hover:text-blue-300 hover:underline text-xs"
@@ -165,19 +142,15 @@ export default function CommunityTicketTable({ tickets, initialFollowedIds }: Pr
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    NEW: 'bg-blue-950/30 text-blue-400 border-blue-900',
+    NEW:         'bg-blue-950/30 text-blue-400 border-blue-900',
     IN_PROGRESS: 'bg-amber-950/30 text-amber-400 border-amber-900',
-    SOLVED: 'bg-emerald-950/30 text-emerald-400 border-emerald-900',
-    FAILED: 'bg-red-950/30 text-red-400 border-red-900',
-    MERGED: 'bg-purple-950/30 text-purple-400 border-purple-900',
-    DRAFT: 'bg-zinc-900 text-zinc-500 border-zinc-800',
+    SOLVED:      'bg-emerald-950/30 text-emerald-400 border-emerald-900',
+    FAILED:      'bg-red-950/30 text-red-400 border-red-900',
+    MERGED:      'bg-purple-950/30 text-purple-400 border-purple-900',
+    DRAFT:       'bg-zinc-900 text-zinc-500 border-zinc-800',
   };
   return (
-    <span
-      className={`px-2 py-0.5 rounded text-xs font-medium border ${
-        styles[status] || styles.DRAFT
-      }`}
-    >
+    <span className={`px-2 py-0.5 rounded text-xs font-medium border ${styles[status] ?? styles.DRAFT}`}>
       {status.replace('_', ' ')}
     </span>
   );
