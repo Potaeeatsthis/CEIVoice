@@ -183,17 +183,18 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   useEffect(() => {
     const markAsRead = async () => {
       if (!ticket.id) return;
-      const { error } = await supabaseBrowser.rpc('mark_ticket_read', { 
-        p_ticket_id: Number(ticket.id),
-        p_user_id: currentUser.id
-      });
-      if (error) {
-        console.error("Failed to mark ticket as read:", error);
-      } else {
-        setTimeout(() => {
-          window.dispatchEvent(new Event('refresh-unread-stats'));
-          router.refresh(); 
-        }, 300);
+      try {
+        const res = await fetch(`/api/tickets/${ticket.id}/read`, { method: 'POST' });
+        if (!res.ok) {
+          console.error('Failed to mark ticket as read:', await res.text());
+        } else {
+          setTimeout(() => {
+            window.dispatchEvent(new Event('refresh-unread-stats'));
+            router.refresh();
+          }, 300);
+        }
+      } catch (err) {
+        console.error('Failed to mark ticket as read:', err);
       }
     };
     markAsRead();
@@ -436,11 +437,11 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               <div key={comment.id} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                 <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border
                   ${isInternalNote ? 'bg-amber-900/20 border-amber-600/40 text-amber-500' : isMe ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-zinc-700 text-zinc-300 border-zinc-600'}`}>
-                  {comment.user.full_name.charAt(0)}
+                  {(comment.user?.full_name ?? 'Anonymous').charAt(0)}
                 </div>
                 <div className={`flex flex-col max-w-[75%] ${isMe ? 'items-end' : 'items-start'}`}>
                   <div className="flex items-center gap-2 mb-1 px-1">
-                    {!isMe && <span className="text-xs font-medium text-zinc-400">{comment.user.full_name}</span>}
+                    {!isMe && <span className="text-xs font-medium text-zinc-400">{comment.user?.full_name ?? 'Anonymous'}</span>}
                     <span className="text-[10px] text-zinc-600">{new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     {isInternalNote && <span className="text-[9px] font-bold uppercase tracking-wide text-amber-500 border border-amber-900/50 bg-amber-950/30 px-1.5 rounded">Internal</span>}
                   </div>

@@ -101,6 +101,26 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
 
   const canComment = isOwner || isFollowing;
 
+  // ── Mark ticket as read on open ────────────────────────────────────────────
+  useEffect(() => {
+    const markAsRead = async () => {
+      if (!ticket.id || !currentUser.id) return;
+      try {
+        const res = await fetch(`/api/tickets/${ticket.id}/read`, { method: 'POST' });
+        if (!res.ok) {
+          console.error('Failed to mark ticket as read:', await res.text());
+        } else {
+          setTimeout(() => {
+            window.dispatchEvent(new Event('refresh-unread-stats'));
+          }, 300);
+        }
+      } catch (err) {
+        console.error('Failed to mark ticket as read:', err);
+      }
+    };
+    markAsRead();
+  }, [ticket.id, currentUser.id]);
+
   // ── Scroll to bottom on new comment ───────────────────────────────────────
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
