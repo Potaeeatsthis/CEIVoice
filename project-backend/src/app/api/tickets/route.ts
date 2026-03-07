@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { publishToQueue } from '@/lib/rabbitmq';
+import { sendTicketCreatedEmail } from '@/lib/email';
 
 export async function GET(request: Request) {
   try {
@@ -114,6 +115,43 @@ export async function POST(request: Request) {
       .single();
 
     if (error) throw error;
+
+    // Send confirmation email (non-blocking)
+    const recipientEmail = email || (userId ? await supabaseAdmin
+      .from('users')
+      .select('email')
+      .eq('id', userId)
+      .single()
+      .then(({ data }) => data?.email)
+      : null);
+
+    if (recipientEmail) {
+      // Fetch user details for name and role if logged in
+      let recipientName = 'User';
+      let recipientRole = 'USER';
+
+      if (userId) {
+        const { data: userRow } = await supabaseAdmin
+          .from('users')
+          .select('full_name, role')
+          .eq('id', userId)
+          .single();
+
+        if (userRow) {
+          recipientName = userRow.full_name || 'User';
+          recipientRole = userRow.role || 'USER';
+        }
+      }
+
+      sendTicketCreatedEmail(
+        recipientEmail,
+        recipientName,
+        ticket.id,
+        ticket.title || `Ticket #${ticket.id}`,
+        ticket.description,
+        recipientRole
+      ).catch((err) => console.error('[Ticket Created Email] Failed:', err));
+    }
 
     const QUEUE_NAME = 'ticket_processing_queue';
 

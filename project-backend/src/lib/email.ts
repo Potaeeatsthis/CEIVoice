@@ -2,6 +2,7 @@
 
 import { Resend } from 'resend';
 import TicketUpdateEmail from '@/components/emails/TicketUpdateEmail';
+import TicketCreatedEmail from '@/components/emails/TicketCreatedEmail';
 import NotificationEmail from '@/components/emails/NotificationEmail';
 import { NewMessageEmail } from '@/components/emails/NewMessageEmail';
 import { RoleUpdatedEmail } from '@/components/emails/RoleUpdatedEmail';
@@ -243,5 +244,33 @@ export async function sendPasswordChangedEmail(
     to: userEmail,
     subject: 'Your CEiVoice password was changed',
     react: PasswordChangedEmail({ name }),
+  });
+}
+
+// ── Ticket created confirmation ───────────────────────────────────────────────
+
+export async function sendTicketCreatedEmail(
+  userEmail: string,
+  recipientName: string,
+  ticketId: string | number,
+  ticketTitle: string,
+  ticketDescription: string,
+  userRole: string = 'USER'
+) {
+  if (!process.env.RESEND_API_KEY) return;
+
+  const link = `${APP_URL}${ticketUrlForRole(userRole, ticketId)}`;
+
+  await resend.emails.send({
+    from: 'CEiVoice Support <support@ceivoice.com>',
+    to: userEmail,
+    subject: `[Ticket #${ticketId}] We received your request`,
+    react: TicketCreatedEmail({
+      recipientName,
+      ticketId,
+      ticketTitle,
+      ticketDescription,
+      link,
+    }),
   });
 }
