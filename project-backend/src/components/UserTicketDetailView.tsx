@@ -34,7 +34,8 @@ type Props = {
   ticket: Ticket;
   initialComments: Comment[];
   currentUser: { id: string; name: string };
-  isOwner: boolean; // true = personal ticket, false = community ticket being followed
+  isOwner: boolean; 
+  isFollowing: boolean; // Add this prop
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -60,7 +61,7 @@ const PRIORITY_TEXT: Record<string, string> = {
   LOW:    'text-emerald-400',
 };
 
-export default function UserTicketDetailView({ ticket, initialComments, currentUser, isOwner }: Props) {
+export default function UserTicketDetailView({ ticket, initialComments, currentUser, isOwner, isFollowing }: Props) {
   const bottomRef    = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef  = useRef<HTMLTextAreaElement>(null);
@@ -70,6 +71,9 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
   const [files,     setFiles]     = useState<File[]>([]);
   const [sending,   setSending]   = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  // Users can only chat if they own it or follow it
+  const canComment = isOwner || isFollowing;
 
   // ── Scroll to bottom on new comment ───────────────────────────────────────
   useEffect(() => {
@@ -213,7 +217,7 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
           </div>
           {!isOwner && (
             <span className="text-[10px] text-zinc-600 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full">
-              Community ticket
+              {isFollowing ? 'Following' : 'Community ticket'}
             </span>
           )}
         </div>
@@ -315,7 +319,8 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex-shrink-0 p-2 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-all"
+              disabled={!canComment}
+              className="flex-shrink-0 p-2 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               title="Attach file"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -334,16 +339,17 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Write a message… (Enter to send)"
+              disabled={!canComment}
+              placeholder={canComment ? "Write a message… (Enter to send)" : "Follow this ticket to join the conversation."}
               rows={1}
-              className="flex-1 bg-zinc-800/60 border border-zinc-700/60 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 resize-none leading-relaxed transition-all"
+              className="flex-1 bg-zinc-800/60 border border-zinc-700/60 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 resize-none leading-relaxed transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ minHeight: '40px', maxHeight: '160px' }}
             />
 
             <button
               type="button"
               onClick={handleSend}
-              disabled={sending || (!text.trim() && files.length === 0)}
+              disabled={sending || (!text.trim() && files.length === 0) || !canComment}
               className="flex-shrink-0 h-9 w-9 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center"
             >
               {sending || uploading ? (

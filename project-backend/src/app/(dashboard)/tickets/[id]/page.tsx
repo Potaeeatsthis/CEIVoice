@@ -13,7 +13,7 @@ async function getData(ticketId: string) {
 
   if (!userId || userRole !== 'USER') return { authorized: false };
 
-  // Fetch the ticket — no created_by filter so community tickets work too
+  // Fetch the ticket (removed the strict DRAFT filter here so owners can see their own)
   const { data: ticket, error } = await supabaseAdmin
     .from('tickets')
     .select(`
@@ -21,10 +21,16 @@ async function getData(ticketId: string) {
       created_by_user:users!tickets_created_by_fkey (full_name, email)
     `)
     .eq('id', ticketId)
-    .not('status', 'eq', 'DRAFT') // never expose drafts to users
     .single();
 
   if (error || !ticket) return null;
+
+  const isOwner = ticket.created_by === userId;
+
+  // Protect drafts: if it's a draft and you aren't the owner, hide it
+  if (ticket.status === 'DRAFT' && !isOwner) {
+    return null;
+  }
 
   // Public comments only for users (no internal notes)
   const { data: comments } = await supabaseAdmin
@@ -41,13 +47,22 @@ async function getData(ticketId: string) {
     .eq('id', userId)
     .single();
 
-  const isOwner = ticket.created_by === userId;
+  // Check if following
+  const { data: followData } = await supabaseAdmin
+    .from('ticket_followers')
+    .select('ticket_id')
+    .eq('ticket_id', ticketId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  const isFollowing = !!followData;
 
   return {
     authorized: true,
     ticket,
     comments: comments || [],
     isOwner,
+    isFollowing,
     currentUser: {
       id:   userId,
       name: currentUserRecord?.full_name || 'You',
@@ -76,7 +91,7 @@ export default async function UserTicketDetailPage({
     );
   }
 
-  const { ticket, comments, isOwner, currentUser } = data;
+  const { ticket, comments, isOwner, isFollowing, currentUser } = data;
 
   return (
     <div className="space-y-6">
@@ -99,8 +114,8 @@ export default async function UserTicketDetailPage({
         </div>
 
         {!isOwner && (
-          <span className="ml-auto flex-shrink-0 text-xs text-zinc-500 bg-zinc-900 border border-zinc-800 px-2.5 py-1 rounded-full">
-            Following
+          <span className="ml-auto flex-shrink-0 text-xs text-zinc-400 bg-zinc-900 border border-zinc-800 px-2.5 py-1 rounded-full">
+            {isFollowing ? 'Following' : 'Community Ticket'}
           </span>
         )}
       </div>
@@ -111,6 +126,7 @@ export default async function UserTicketDetailPage({
         initialComments={comments}
         currentUser={currentUser}
         isOwner={isOwner}
+        isFollowing={isFollowing}
       />
     </div>
   );
