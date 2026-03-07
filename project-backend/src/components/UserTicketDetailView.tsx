@@ -10,6 +10,7 @@ type Comment = {
   id: string;
   user_id: string;
   message?: string;
+  content?: string; 
   created_at: string;
   is_internal: boolean;
   attachments?: string[];
@@ -35,7 +36,7 @@ type Props = {
   initialComments: Comment[];
   currentUser: { id: string; name: string };
   isOwner: boolean; 
-  isFollowing: boolean; // Add this prop
+  isFollowing?: boolean;
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -61,6 +62,32 @@ const PRIORITY_TEXT: Record<string, string> = {
   LOW:    'text-emerald-400',
 };
 
+// Helper for rendering attachments identically to the admin view
+function AttachmentPreview({ url }: { url: string }) {
+  const isImage = url.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null;
+
+  if (isImage) {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" className="block mt-2">
+        <img
+          src={url}
+          alt="attachment"
+          className="max-h-48 rounded-lg border border-zinc-700 hover:border-zinc-500 transition-colors"
+        />
+      </a>
+    );
+  }
+
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 mt-2 p-2 bg-zinc-900/50 rounded border border-zinc-700 hover:bg-zinc-800 transition-colors w-fit">
+      <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+      </svg>
+      <span className="text-xs text-blue-400 underline">View Attachment</span>
+    </a>
+  );
+}
+
 export default function UserTicketDetailView({ ticket, initialComments, currentUser, isOwner, isFollowing }: Props) {
   const bottomRef    = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -72,7 +99,6 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
   const [sending,   setSending]   = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // Users can only chat if they own it or follow it
   const canComment = isOwner || isFollowing;
 
   // ── Scroll to bottom on new comment ───────────────────────────────────────
@@ -102,9 +128,8 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
         },
         async (payload) => {
           const newComment = payload.new as any;
-          if (newComment.is_internal) return; // never show internal to users
+          if (newComment.is_internal) return;
 
-          // Fetch the user name
           const { data: userData } = await supabaseBrowser
             .from('users')
             .select('full_name')
@@ -112,7 +137,6 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
             .single();
 
           setComments((prev) => {
-            // Avoid duplicates
             if (prev.some((c) => c.id === newComment.id)) return prev;
             return [
               ...prev,
@@ -162,14 +186,20 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
         setUploading(false);
       }
 
+      const payload: any = {
+        message: text.trim(),
+        content: text.trim(),
+        is_internal: false,
+      };
+
+      if (attachmentUrls.length > 0) {
+        payload.attachments = attachmentUrls;
+      }
+
       const res = await fetch(`/api/tickets/${ticket.id}/comments`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          message:     text.trim(),
-          is_internal: false,
-          attachments: attachmentUrls,
-        }),
+        body:    JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -195,138 +225,118 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
   };
 
   const publicComments = comments.filter((c) => !c.is_internal);
-
   const priorityLevel = { URGENT: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }[ticket.priority] ?? 1;
 
   return (
     <div className="flex gap-6 h-full">
 
       {/* ── Left: Chat ─────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-h-0 rounded-xl border border-zinc-800 bg-zinc-950/60 overflow-hidden">
-
-        {/* Chat header */}
-        <div className="px-5 py-3.5 border-b border-zinc-800 bg-zinc-900/40 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <svg className="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            <span className="text-xs font-medium text-zinc-400">
-              {publicComments.length} message{publicComments.length !== 1 ? 's' : ''}
-            </span>
+      <div className="flex-1 flex flex-col min-h-0 rounded-xl border border-zinc-800 bg-zinc-950 shadow-sm overflow-hidden">
+        
+        {/* Header */}
+        <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm z-10">
+          <h2 className="text-lg font-semibold text-white truncate">{ticket.title || 'Untitled Ticket'}</h2>
+          <div className="flex items-center gap-2 text-xs text-zinc-400 mt-1">
+            <span>Requested by {ticket.created_by_user?.full_name || 'User'}</span>
+            <span>•</span>
+            <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+            {!isOwner && (
+              <>
+                <span>•</span>
+                <span className="px-1.5 py-0.5 rounded-sm bg-zinc-800 text-zinc-300 text-[10px] uppercase tracking-wide">Community</span>
+              </>
+            )}
           </div>
-          {!isOwner && (
-            <span className="text-[10px] text-zinc-600 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full">
-              {isFollowing ? 'Following' : 'Community ticket'}
-            </span>
-          )}
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0" style={{ maxHeight: '480px' }}>
-          {publicComments.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3">
-                <svg className="w-4 h-4 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <p className="text-sm text-zinc-600">No messages yet</p>
-              <p className="text-xs text-zinc-700 mt-1">Be the first to write something</p>
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-black/20" style={{ maxHeight: '480px' }}>
+          
+          {/* ORIGINAL REQUEST */}
+          <div className="flex gap-3">
+            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-xs font-bold border border-indigo-500/30">
+              {ticket.created_by_user?.full_name?.charAt(0).toUpperCase() || 'U'}
             </div>
-          ) : (
-            publicComments.map((comment) => {
-              const isMine = comment.user_id === currentUser.id;
-              return (
-                <div key={comment.id} className={`flex gap-3 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
-                  {/* Avatar */}
-                  <div className={`h-7 w-7 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-bold border
-                    ${isMine
-                      ? 'bg-blue-950 border-blue-900 text-blue-300'
-                      : 'bg-zinc-800 border-zinc-700 text-zinc-300'
-                    }`}>
-                    {comment.user?.full_name?.charAt(0).toUpperCase() ?? '?'}
-                  </div>
+            <div className="flex flex-col max-w-[85%]">
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-sm font-medium text-zinc-300">{ticket.created_by_user?.full_name || 'User'}</span>
+                <span className="text-[10px] text-zinc-600">Original Request</span>
+              </div>
+              <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-2xl rounded-tl-none px-4 py-3 text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap">
+                {ticket.description}
+                {ticket.img && ticket.img.map((url, idx) => (
+                  <AttachmentPreview key={idx} url={url} />
+                ))}
+              </div>
+            </div>
+          </div>
 
-                  {/* Bubble */}
-                  <div className={`max-w-[75%] space-y-1 ${isMine ? 'items-end' : 'items-start'} flex flex-col`}>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-zinc-500">
-                        {comment.user?.full_name ?? 'Support'}
-                      </span>
-                      <span className="text-[10px] text-zinc-700">
-                        {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-
-                    <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed
-                      ${isMine
-                        ? 'bg-blue-600/20 border border-blue-900/60 text-blue-100 rounded-tr-sm'
-                        : 'bg-zinc-800/80 border border-zinc-700/60 text-zinc-200 rounded-tl-sm'
-                      }`}>
-                      {comment.message}
-                    </div>
-
-                    {/* Attachments */}
-                    {comment.attachments && comment.attachments.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {comment.attachments.map((url, i) => {
-                          const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
-                          return isImage ? (
-                            <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                              <img src={url} alt="attachment" className="max-h-32 rounded-lg border border-zinc-700 hover:border-zinc-500 transition-colors" />
-                            </a>
-                          ) : (
-                            <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 bg-zinc-900 border border-zinc-800 px-2.5 py-1 rounded-lg transition-colors">
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                              </svg>
-                              Attachment
-                            </a>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })
+          {publicComments.length > 0 && (
+            <div className="relative flex items-center py-2">
+              <div className="flex-grow border-t border-zinc-800" />
+              <span className="flex-shrink-0 mx-4 text-xs text-zinc-600 font-medium uppercase tracking-wider">Discussion</span>
+              <div className="flex-grow border-t border-zinc-800" />
+            </div>
           )}
+          
+          {publicComments.map((comment) => {
+            const isMine = comment.user_id === currentUser.id;
+            const displayMessage = comment.message || comment.content; 
+            
+            return (
+              <div key={comment.id} className={`flex gap-3 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
+                {/* Avatar */}
+                <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border
+                  ${isMine ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-zinc-700 text-zinc-300 border-zinc-600'}`}>
+                  {comment.user?.full_name?.charAt(0).toUpperCase() ?? '?'}
+                </div>
+
+                {/* Bubble Container */}
+                <div className={`flex flex-col max-w-[75%] ${isMine ? 'items-end' : 'items-start'}`}>
+                  <div className="flex items-center gap-2 mb-1 px-1">
+                    {!isMine && <span className="text-xs font-medium text-zinc-400">{comment.user?.full_name ?? 'Support'}</span>}
+                    <span className="text-[10px] text-zinc-600">
+                      {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+
+                  {displayMessage && displayMessage.trim().length > 0 && (
+                    <div className={`px-4 py-2.5 shadow-sm text-sm whitespace-pre-wrap break-words border 
+                      ${isMine ? 'bg-zinc-900 border-zinc-800 text-zinc-300 rounded-2xl rounded-tr-none' : 'bg-zinc-700 border-zinc-600 text-white rounded-2xl rounded-tl-none'}`}>
+                      {displayMessage}
+                    </div>
+                  )}
+
+                  {/* Attachments */}
+                  {comment.attachments && comment.attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {comment.attachments.map((url, i) => (
+                        <AttachmentPreview key={i} url={url} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
           <div ref={bottomRef} />
         </div>
 
         {/* Input */}
-        <div className="border-t border-zinc-800 bg-zinc-900/30 px-4 py-3">
+        <div className="p-4 bg-zinc-900/30 border-t border-zinc-800">
           {files.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-2">
+            <div className="mb-2 flex flex-wrap gap-2">
               {files.map((f, i) => (
-                <div key={i} className="flex items-center gap-1.5 bg-zinc-800 border border-zinc-700 px-2.5 py-1 rounded-full text-xs text-zinc-300">
-                  <span className="truncate max-w-[120px]">{f.name}</span>
+                <div key={i} className="flex items-center gap-2 bg-zinc-800 px-3 py-1 rounded-full text-xs text-zinc-300 border border-zinc-700 animate-in zoom-in duration-200">
+                  <span className="truncate max-w-[150px]">{f.name}</span>
                   <button type="button" onClick={() => setFiles((p) => p.filter((_, j) => j !== i))}
-                    className="text-zinc-500 hover:text-red-400 transition-colors">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+                    className="text-zinc-500 hover:text-white">✕</button>
                 </div>
               ))}
             </div>
           )}
 
-          <div className="flex items-end gap-2">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={!canComment}
-              className="flex-shrink-0 p-2 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Attach file"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-              </svg>
-            </button>
+          <div className="relative flex gap-2 items-end">
             <input ref={fileInputRef} type="file" className="hidden" multiple
               accept=".pdf,.jpg,.jpeg,.png,.webp"
               onChange={(e) => {
@@ -334,32 +344,50 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
               }}
             />
 
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={!canComment}
-              placeholder={canComment ? "Write a message… (Enter to send)" : "Follow this ticket to join the conversation."}
-              rows={1}
-              className="flex-1 bg-zinc-800/60 border border-zinc-700/60 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 resize-none leading-relaxed transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ minHeight: '40px', maxHeight: '160px' }}
-            />
-
             <button
               type="button"
-              onClick={handleSend}
-              disabled={sending || (!text.trim() && files.length === 0) || !canComment}
-              className="flex-shrink-0 h-9 w-9 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={!canComment}
+              className="p-3 bg-zinc-900 border border-zinc-700 rounded-xl text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors h-[46px] disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Attach file"
             >
-              {sending || uploading ? (
-                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-              )}
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
             </button>
+
+            <div className="relative flex-1">
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={!canComment}
+                placeholder={canComment ? "Type your message..." : "Follow this ticket to join the conversation."}
+                rows={1}
+                className="w-full bg-zinc-950 border border-zinc-700 rounded-xl pl-4 pr-12 py-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-500/50 focus:border-zinc-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                style={{ minHeight: '46px', maxHeight: '160px' }}
+              />
+              
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={sending || (!text.trim() && files.length === 0) || !canComment}
+                className="absolute right-2 bottom-2 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+              >
+                {sending || uploading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center mt-2 pl-[52px]">
+            <div className="text-[10px] text-zinc-600">Press <span className="font-mono text-zinc-500">Enter</span> to send</div>
           </div>
         </div>
       </div>
