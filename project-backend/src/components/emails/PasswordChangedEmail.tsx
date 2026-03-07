@@ -1,15 +1,13 @@
-// src/components/emails/ResetPasswordEmail.tsx
+// src/components/emails/PasswordChangedEmail.tsx
 
 import React from 'react';
 
-interface ResetPasswordEmailProps {
+interface PasswordChangedEmailProps {
   name: string;
-  link: string;
 }
 
-export const ResetPasswordEmail: React.FC<Readonly<ResetPasswordEmailProps>> = ({
+export const PasswordChangedEmail: React.FC<Readonly<PasswordChangedEmailProps>> = ({
   name,
-  link,
 }) => {
   return (
     <div style={styles.wrapper}>
@@ -23,33 +21,31 @@ export const ResetPasswordEmail: React.FC<Readonly<ResetPasswordEmailProps>> = (
         <div style={styles.body}>
           {/* Badge */}
           <div style={styles.badge}>
-            Security Action
+            Security Alert
           </div>
 
-          <h2 style={styles.title}>Reset Your Password</h2>
+          <h2 style={styles.title}>Password Changed</h2>
 
           <p style={styles.text}>Hello {name},</p>
 
           <p style={styles.text}>
-            We received a request to reset the password for your CEiVoice account. If you made this request, please click the button below to set a new password:
+            This is a confirmation that the password for your CEiVoice account was successfully updated. 
           </p>
 
-          {/* Details Box / Action Button */}
+          {/* Details Box for emphasis */}
           <div style={styles.detailsBox}>
-             <a href={link} style={styles.button}>
-               RESET PASSWORD
-             </a>
+            <p style={{ margin: 0, color: '#ffffff', fontSize: '15px', lineHeight: '1.6' }}>
+              <strong>Did you make this change?</strong><br />
+              If you authorized this change, no further action is needed. If you did <strong>not</strong> authorize this change, please contact a system administrator immediately to secure your account.
+            </p>
           </div>
-
-          <p style={styles.text}>
-            If you did not request a password reset, you can safely ignore this email. Your current password will remain secure and unchanged.
-          </p>
         </div>
 
         {/* Footer */}
         <div style={styles.footer}>
           <p style={styles.footerText}>
-            © {new Date().getFullYear()} CEiVoice System. All rights reserved.
+            © {new Date().getFullYear()} CEiVoice System. All rights reserved.<br/>
+            Please do not reply to this automated message.
           </p>
         </div>
       </div>
@@ -112,21 +108,9 @@ const styles = {
   detailsBox: {
     backgroundColor: '#262626',
     borderRadius: '6px',
-    padding: '32px 24px',
+    padding: '24px',
     borderLeft: '4px solid #00e676', // The signature green border
     margin: '32px 0',
-    textAlign: 'center' as const,
-  },
-  button: {
-    backgroundColor: '#00e676',
-    color: '#000000', // Black text for high contrast on green
-    padding: '14px 28px',
-    borderRadius: '4px',
-    fontSize: '15px',
-    fontWeight: 'bold',
-    textDecoration: 'none',
-    display: 'inline-block',
-    letterSpacing: '1px',
   },
   footer: {
     backgroundColor: '#000000',
@@ -134,10 +118,11 @@ const styles = {
     textAlign: 'center' as const,
   },
   footerText: {
-    margin: 0,
+    margin: '0 0 8px 0',
     color: '#525252',
     fontSize: '13px',
+    lineHeight: '1.5',
   },
 };
 
-export default ResetPasswordEmail;
+export default PasswordChangedEmail;

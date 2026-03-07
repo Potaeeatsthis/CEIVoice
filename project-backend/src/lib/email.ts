@@ -7,6 +7,7 @@ import { NewMessageEmail } from '@/components/emails/NewMessageEmail';
 import { RoleUpdatedEmail } from '@/components/emails/RoleUpdatedEmail';
 import { WelcomeEmail } from '@/components/emails/WelcomeEmail';
 import { ResetPasswordEmail } from '@/components/emails/ResetPasswordEmail';
+import { PasswordChangedEmail } from '@/components/emails/PasswordChangedEmail';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -232,13 +233,6 @@ export async function sendPasswordChangedEmail(
     from: 'CEiVoice Security <support@ceivoice.com>',
     to: userEmail,
     subject: 'Your CEiVoice password was changed',
-    html: `
-      <div style="font-family: sans-serif; color: #333;">
-        <h2>Password Changed Successfully</h2>
-        <p>Hi ${name || 'there'},</p>
-        <p>This is a confirmation that the password for your CEIVoice account was recently changed.</p>
-        <p>If you did not authorize this change, please contact an administrator immediately.</p>
-      </div>
-    `,
+    react: PasswordChangedEmail({ name }),
   });
 }
