@@ -15,7 +15,6 @@ export default function CreateTicketPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropzoneRef  = useRef<HTMLDivElement>(null);
 
-  const [title,           setTitle]           = useState('');
   const [message,         setMessage]         = useState('');
   const [contactEmail,    setContactEmail]    = useState('');
   const [accountEmail,    setAccountEmail]    = useState('');
@@ -87,7 +86,6 @@ export default function CreateTicketPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!title.trim())        { toast.error('Subject is required');       return; }
     if (!message.trim())      { toast.error('Description is required');   return; }
     if (!contactEmail.trim()) { toast.error('Contact email is required'); return; }
 
@@ -110,7 +108,7 @@ export default function CreateTicketPage() {
         method:      'POST',
         headers:     { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ title, message, contactEmail, img: uploadedUrls }),
+        body: JSON.stringify({ message, contactEmail, img: uploadedUrls }),
       });
 
       const data = await res.json();
@@ -130,7 +128,7 @@ export default function CreateTicketPage() {
   const charCount   = message.length;
   const charWarning = charCount > MAX_DESCRIPTION * 0.85;
   const charOver    = charCount > MAX_DESCRIPTION;
-  const canSubmit   = title.trim() && message.trim() && contactEmail.trim() && !charOver && !isSubmitting;
+  const canSubmit   = message.trim() && contactEmail.trim() && !charOver && !isSubmitting;
 
   const stepLabel = step === 'uploading'  ? `Uploading ${files.length} file${files.length > 1 ? 's' : ''}…`
                   : step === 'submitting' ? 'Submitting ticket…'
@@ -164,21 +162,6 @@ export default function CreateTicketPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
-
-            {/* Subject */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                Subject <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Brief summary of your issue"
-                maxLength={120}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-600/60 focus:border-blue-600/60 transition-all"
-              />
-            </div>
 
             {/* Contact email */}
             <div className="space-y-2">
@@ -446,7 +429,7 @@ export default function CreateTicketPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <p className="text-xs text-amber-500/80 leading-relaxed">
-                For urgent issues affecting your workflow, mention <span className="font-semibold text-amber-400">URGENT</span> at the start of your subject.
+                For urgent issues affecting your workflow, mention <span className="font-semibold text-amber-400">URGENT</span> at the start of your description.
               </p>
             </div>
           </div>
