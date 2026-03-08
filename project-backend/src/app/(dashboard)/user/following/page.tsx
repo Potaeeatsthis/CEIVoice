@@ -58,15 +58,34 @@ export default async function FollowingPage() {
 
   const tickets = await getFollowedTickets(userId);
 
+  const total = tickets.length;
+  const solved = tickets.filter(t => t.status === 'SOLVED').length;
+  const active = tickets.filter(t => !['SOLVED', 'FAILED'].includes(t.status)).length;
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-white">Following</h1>
-        <div className="mt-4 inline-block border border-zinc-800 rounded-lg bg-zinc-950/60 px-5 py-4 min-w-[140px]">
-          <p className="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-1">Solved</p>
-          <p className="text-2xl font-bold text-emerald-400">{tickets.filter(t => t.status === 'SOLVED').length}</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Following</h1>
+          <p className="text-sm text-zinc-500 mt-1">Tickets you're watching for updates</p>
         </div>
       </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-xl px-5 py-4">
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Following</p>
+          <p className="text-2xl font-bold text-white">{total}</p>
+        </div>
+        <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-xl px-5 py-4">
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Active</p>
+          <p className="text-2xl font-bold text-blue-400">{active}</p>
+        </div>
+        <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-xl px-5 py-4">
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Solved</p>
+          <p className="text-2xl font-bold text-emerald-400">{solved}</p>
+        </div>
+      </div>
+
       <FollowingTicketTable tickets={tickets} />
     </div>
   );

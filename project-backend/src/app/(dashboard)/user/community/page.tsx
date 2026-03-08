@@ -61,29 +61,29 @@ export default async function CommunityPage() {
   const { tickets, followedIds } = await getCommunityData(userId);
 
   return (
-    <div className="space-y-6 w-full">
-      {/* Header */}
-      <div className="space-y-4">
-        <h1 className="text-3xl font-bold tracking-tight text-white">
-          Public Feed
-        </h1>
-        <div className="grid grid-cols-3 gap-4">
-          <div className="border border-zinc-800 rounded-lg bg-zinc-950/60 px-5 py-4">
-            <p className="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-1">Total Tickets</p>
-            <p className="text-2xl font-bold text-white">{tickets.length}</p>
-          </div>
-          <div className="border border-zinc-800 rounded-lg bg-zinc-950/60 px-5 py-4">
-            <p className="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-1">New Tickets</p>
-            <p className="text-2xl font-bold text-blue-400">{tickets.filter(t => t.status === 'NEW').length}</p>
-          </div>
-          <div className="border border-zinc-800 rounded-lg bg-zinc-950/60 px-5 py-4">
-            <p className="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-1">Following</p>
-            <p className="text-2xl font-bold text-emerald-400">{followedIds.length}</p>
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Public Feed</h1>
+          <p className="text-sm text-zinc-500 mt-1">Browse and follow tickets from the community</p>
         </div>
       </div>
 
-      {/* Card list */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-xl px-5 py-4">
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Total Tickets</p>
+          <p className="text-2xl font-bold text-white">{tickets.length}</p>
+        </div>
+        <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-xl px-5 py-4">
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">New</p>
+          <p className="text-2xl font-bold text-blue-400">{tickets.filter(t => t.status === 'NEW').length}</p>
+        </div>
+        <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-xl px-5 py-4">
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Following</p>
+          <p className="text-2xl font-bold text-emerald-400">{followedIds.length}</p>
+        </div>
+      </div>
+
       <CommunityTicketTable tickets={tickets} initialFollowedIds={followedIds} />
     </div>
   );
