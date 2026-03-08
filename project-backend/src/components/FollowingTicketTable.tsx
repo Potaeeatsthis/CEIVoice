@@ -4,69 +4,50 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import PriorityIcon from '@/components/PriorityIcon';
 import type { Ticket } from '@/app/(dashboard)/user/following/page';
 
-type SortConfig = { key: keyof Ticket; direction: 'asc' | 'desc' } | null;
-
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 7;
 
 export default function FollowingTicketTable({ tickets }: { tickets: Ticket[] }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [unfollowingIds, setUnfollowingIds] = useState<Set<number>>(new Set());
+  const [removedIds, setRemovedIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, sortConfig]);
+  }, [searchQuery]);
 
-  const handleSort = (key: keyof Ticket) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
+  async function handleUnfollow(ticketId: number, e: React.MouseEvent) {
+    e.preventDefault();
+    setUnfollowingIds((prev) => new Set(prev).add(ticketId));
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}/follow`, { method: 'DELETE' });
+      if (res.ok) {
+        setRemovedIds((prev) => new Set(prev).add(ticketId));
+      }
+    } catch (err) {
+      console.error('Unfollow error:', err);
+    } finally {
+      setUnfollowingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(ticketId);
+        return next;
+      });
     }
-    setSortConfig({ key, direction });
-  };
+  }
+
+  const visibleTickets = tickets.filter((t) => !removedIds.has(t.id));
 
   const processedTickets = useMemo(() => {
-    // 1. Filter
-    const filtered = tickets.filter((t) => {
-      const search = searchQuery.toLowerCase();
-      return (
-        (t.title?.toLowerCase() || '').includes(search) ||
-        (t.description?.toLowerCase() || '').includes(search) ||
-        (t.category?.toLowerCase() || '').includes(search) ||
-        (t.status?.toLowerCase() || '').includes(search)
-      );
-    });
-
-    // 2. Sort
-    if (!sortConfig) return filtered;
-    
-    return [...filtered].sort((a, b) => {
-      const { key, direction } = sortConfig;
-      
-      if (key === 'created_at') {
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
-        return direction === 'asc' ? dateA - dateB : dateB - dateA;
-      }
-
-      if (key === 'priority') {
-        const weight = { URGENT: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
-        const aVal = weight[a.priority] || 0;
-        const bVal = weight[b.priority] || 0;
-        return direction === 'asc' ? aVal - bVal : bVal - aVal;
-      }
-
-      const aVal = String(a[key] || '').toLowerCase();
-      const bVal = String(b[key] || '').toLowerCase();
-      
-      if (aVal < bVal) return direction === 'asc' ? -1 : 1;
-      if (aVal > bVal) return direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [tickets, searchQuery, sortConfig]);
+    const search = searchQuery.toLowerCase();
+    return visibleTickets.filter((t) =>
+      (t.title?.toLowerCase() || '').includes(search) ||
+      (t.description?.toLowerCase() || '').includes(search) ||
+      (t.category?.toLowerCase() || '').includes(search) ||
+      (t.status?.toLowerCase() || '').includes(search)
+    );
+  }, [visibleTickets, searchQuery]);
 
   const totalPages = Math.ceil(processedTickets.length / PAGE_SIZE);
   const paginatedTickets = processedTickets.slice(
@@ -74,143 +55,147 @@ export default function FollowingTicketTable({ tickets }: { tickets: Ticket[] })
     currentPage * PAGE_SIZE
   );
 
-  if (tickets.length === 0 && !searchQuery) {
+  if (visibleTickets.length === 0) {
     return (
-      <div className="p-12 text-center text-zinc-500 border border-zinc-800 rounded-md bg-zinc-950/40">
-        You're not following any tickets yet.{' '}
-        <Link href="/user/community" className="text-blue-400 hover:text-blue-300 underline">
-          Browse community tickets
-        </Link>
-        .
+      <div className="space-y-4">
+        <SearchBar value={searchQuery} onChange={setSearchQuery} />
+        <div className="p-12 text-center text-zinc-500 border border-zinc-800 rounded-lg bg-zinc-950/40">
+          You're not following any tickets yet.{' '}
+          <Link href="/user/community" className="text-blue-400 hover:text-blue-300 underline">
+            Browse the public feed
+          </Link>{' '}
+          to follow some.
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* Search Bar */}
-      <div className="relative max-w-md">
-        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-        <input
-          type="text"
-          placeholder="Search followed tickets..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-zinc-950/40 border border-zinc-800 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 transition-all"
-        />
-      </div>
+      <SearchBar value={searchQuery} onChange={setSearchQuery} />
 
-      <div className="rounded-md border border-zinc-800 bg-zinc-950/40 backdrop-blur-sm overflow-hidden flex flex-col">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-zinc-800 bg-zinc-900/50 text-zinc-400">
-                <SortableHeader label="Subject" sortKey="title" currentSort={sortConfig} onSort={handleSort} />
-                <SortableHeader label="Category" sortKey="category" currentSort={sortConfig} onSort={handleSort} />
-                <SortableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={handleSort} />
-                <SortableHeader label="Priority" sortKey="priority" currentSort={sortConfig} onSort={handleSort} />
-                <SortableHeader label="Date" sortKey="created_at" currentSort={sortConfig} onSort={handleSort} align="right" />
-              </tr>
-            </thead>
+      <div className="space-y-3">
+        {paginatedTickets.map((ticket) => {
+          const isUnfollowing = unfollowingIds.has(ticket.id);
+          const displayDate = ticket.updated_at || ticket.created_at;
 
-            <tbody className="divide-y divide-zinc-800">
-              {paginatedTickets.map((ticket) => (
-                <tr key={ticket.id} className="group hover:bg-zinc-900/30 transition-colors">
-                  <td className="px-6 py-4">
-                    <Link href={`/tickets/${ticket.id}?ref=following`} className="font-medium text-zinc-200 hover:text-white hover:underline block transition-colors">
-                      {ticket.title || 'Untitled Ticket'}
-                    </Link>
-                    <span className="text-xs text-zinc-500 truncate max-w-[240px] block mt-0.5">
-                      {ticket.description}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-xs text-zinc-400">{ticket.category || '—'}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <StatusBadge status={ticket.status} />
-                  </td>
-                  <td className="px-6 py-4">
-                    <PriorityIcon priority={ticket.priority} />
-                  </td>
-                  <td className="px-6 py-4 text-right text-zinc-500 text-xs whitespace-nowrap">
-                    {new Date(ticket.created_at).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
-              {paginatedTickets.length === 0 && (
-                 <tr>
-                   <td colSpan={5} className="px-6 py-12 text-center text-zinc-500">
-                     No tickets match your search.
-                   </td>
-                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-3 border-t border-zinc-800 bg-zinc-900/30">
-            <span className="text-xs text-zinc-500">
-              Showing {(currentPage - 1) * PAGE_SIZE + 1} to {Math.min(currentPage * PAGE_SIZE, processedTickets.length)} of {processedTickets.length}
-            </span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 text-xs font-medium rounded border border-zinc-700 bg-zinc-800 text-zinc-300 disabled:opacity-50 hover:bg-zinc-700 transition-colors"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 text-xs font-medium rounded border border-zinc-700 bg-zinc-800 text-zinc-300 disabled:opacity-50 hover:bg-zinc-700 transition-colors"
-              >
-                Next
-              </button>
-            </div>
+          return (
+            <Link
+              key={ticket.id}
+              href={`/tickets/${ticket.id}?ref=following`}
+              className="block"
+            >
+              <div className="relative border border-zinc-800 rounded-lg bg-zinc-950/60 hover:bg-zinc-900/60 hover:border-zinc-700 transition-all duration-150 p-5">
+                {/* Status badge top-right */}
+                <div className="absolute top-4 right-4">
+                  <StatusBadge status={ticket.status} />
+                </div>
+
+                {/* Ticket ID + title */}
+                <div className="flex items-center gap-2 mb-2 pr-16">
+                  <span className="text-xs text-blue-400 font-mono font-semibold">#{ticket.id}</span>
+                  {ticket.title && ticket.title !== 'Untitled Ticket' && (
+                    <span className="text-white font-semibold text-base">{ticket.title}</span>
+                  )}
+                </div>
+
+                {/* Description */}
+                {ticket.description && (
+                  <p className="text-zinc-400 text-sm leading-relaxed mb-4 pr-16 line-clamp-2">
+                    &ldquo;{ticket.description}&rdquo;
+                  </p>
+                )}
+
+                {/* Footer metadata */}
+                <div className="flex items-center gap-4 text-xs text-zinc-500">
+                  <span className="flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Updated {new Date(displayDate).toLocaleDateString('en-US', {
+                      month: 'numeric', day: 'numeric', year: 'numeric'
+                    })}
+                  </span>
+
+                  {/* Unfollow button — matches Public Feed style */}
+                  <button
+                    onClick={(e) => handleUnfollow(ticket.id, e)}
+                    disabled={isUnfollowing}
+                    className={`ml-auto whitespace-nowrap text-xs font-medium px-2.5 py-1 rounded border transition-all duration-150
+                      ${isUnfollowing ? 'opacity-50 cursor-not-allowed' : ''}
+                      bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700 hover:text-white`}
+                  >
+                    {isUnfollowing ? '…' : 'Unfollow'}
+                  </button>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+
+        {paginatedTickets.length === 0 && (
+          <div className="p-12 text-center text-zinc-500 border border-zinc-800 rounded-lg bg-zinc-950/40">
+            No tickets match your search.
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-xs text-zinc-500">
+            Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, processedTickets.length)} of {processedTickets.length}
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 text-xs font-medium rounded border border-zinc-700 bg-zinc-800 text-zinc-300 disabled:opacity-50 hover:bg-zinc-700 transition-colors"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 text-xs font-medium rounded border border-zinc-700 bg-zinc-800 text-zinc-300 disabled:opacity-50 hover:bg-zinc-700 transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function SortableHeader({ label, sortKey, currentSort, onSort, align = 'left' }: any) {
-  const isActive = currentSort?.key === sortKey;
-  
-  const getSortIcon = () => {
-    if (!isActive) return <span className="text-zinc-600">↕</span>;
-    return currentSort.direction === 'asc' ? <span className="text-white">↑</span> : <span className="text-white">↓</span>;
-  };
-
+function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <th 
-      className={`px-6 py-3 font-medium cursor-pointer hover:text-white transition-colors group ${align === 'right' ? 'text-right' : 'text-left'}`} 
-      onClick={() => onSort(sortKey)}
-    >
-      <div className={`flex items-center gap-1.5 ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
-        {label} {getSortIcon()}
-      </div>
-    </th>
+    <div className="relative w-full">
+      <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <input
+        type="text"
+        placeholder="Search followed tickets..."
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-zinc-950/40 border border-zinc-800 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 transition-all"
+      />
+    </div>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    NEW: 'bg-blue-950/30 text-blue-400 border-blue-900',
+    NEW:         'bg-blue-950/30 text-blue-400 border-blue-900',
     IN_PROGRESS: 'bg-amber-950/30 text-amber-400 border-amber-900',
-    SOLVED: 'bg-emerald-950/30 text-emerald-400 border-emerald-900',
-    FAILED: 'bg-red-950/30 text-red-400 border-red-900',
-    MERGED: 'bg-purple-950/30 text-purple-400 border-purple-900',
-    DRAFT: 'bg-zinc-900 text-zinc-500 border-zinc-800',
+    SOLVED:      'bg-emerald-950/30 text-emerald-400 border-emerald-900',
+    FAILED:      'bg-red-950/30 text-red-400 border-red-900',
+    MERGED:      'bg-purple-950/30 text-purple-400 border-purple-900',
+    DRAFT:       'bg-zinc-900 text-zinc-500 border-zinc-800',
   };
   return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap border ${styles[status] || styles.DRAFT}`}>
+    <span className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap border ${styles[status] ?? styles.DRAFT}`}>
       {status.replace('_', ' ')}
     </span>
   );

@@ -1,4 +1,7 @@
 // src/components/Sidebar.tsx
+// Changes from original (test-frontend → matches private/chingching):
+//   UserMenu COMMUNITY section: "Tickets" → "Public Feed" (globe icon)
+//   UserMenu PERSONAL section:  "Upload"  → "New Request", "Tickets" → "My Tickets"
 
 'use client';
 import Link from 'next/link';
@@ -19,7 +22,6 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
   const [draftCount, setDraftCount] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  // Local state for real-time updates
   const [localName, setLocalName] = useState(userName);
   const [localAvatar, setLocalAvatar] = useState<string | null>(null);
 
@@ -41,7 +43,6 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
     setDraftCount(count || 0);
   }, []);
 
-  // Fetch initial profile data on mount to get the avatar
   useEffect(() => {
     if (!userId) return;
     const fetchInitialProfile = async () => {
@@ -110,8 +111,8 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
               <Image src="/logo_cei.png" alt="CEI Logo" width={52} height={52} className="object-contain" priority />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-base font-bold text-white tracking-tight leading-tight">CEIVoice</span>
-              <span className="text-xs text-zinc-500 tracking-wide">Help Desk Portal</span>
+              <span className="text-base font-bold text-white tracking-tight leading-tight">CEIVOICE</span>
+              <span className="text-xs text-zinc-500 tracking-wide">HELP DESK</span>
             </div>
           </Link>
         </div>
@@ -128,36 +129,41 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
           )}
         </nav>
 
-        {/* ── Profile footer ── */}
+        {/* Profile footer */}
         <div className="p-3 border-t border-zinc-800 bg-zinc-900/30">
-          <button
-            onClick={() => userId && setProfileOpen(true)}
-            disabled={!userId}
-            className="w-full flex items-center gap-3 px-2 py-2 rounded-lg group hover:bg-zinc-800/60 transition-all duration-200 disabled:cursor-default text-left"
-            title="Edit profile"
-          >
-            <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white border border-zinc-700 flex-shrink-0 group-hover:border-zinc-600 transition-colors overflow-hidden">
-              {localAvatar ? (
-                <img src={localAvatar} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                displayInitial
+          <div className="flex items-center gap-1">
+            {/* Profile button */}
+            <button
+              onClick={() => userId && setProfileOpen(true)}
+              disabled={!userId}
+              className="flex-1 flex items-center gap-3 px-2 py-2 rounded-lg group hover:bg-zinc-800/60 transition-all duration-200 disabled:cursor-default text-left"
+              title="Edit profile"
+            >
+              <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white border border-zinc-700 flex-shrink-0 group-hover:border-zinc-600 transition-colors overflow-hidden">
+                {localAvatar ? (
+                  <img src={localAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  displayInitial
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">{localName}</p>
+                <p className="text-xs text-zinc-500 truncate capitalize">{userRole.toLowerCase()}</p>
+              </div>
+              {userId && (
+                <svg className="w-3.5 h-3.5 text-zinc-600 group-hover:text-zinc-400 flex-shrink-0 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
               )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{localName}</p>
-              <p className="text-xs text-zinc-500 truncate capitalize">{userRole.toLowerCase()}</p>
-            </div>
-            {userId && (
-              <svg className="w-3.5 h-3.5 text-zinc-600 group-hover:text-zinc-400 flex-shrink-0 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            )}
-          </button>
+            </button>
+
+            {/* Logout button */}
+            {userId && <LogoutButton />}
+          </div>
         </div>
       </aside>
 
-      {/* Modal outside <aside> to avoid stacking context issues */}
       {userId && (
         <ProfileModal
           isOpen={profileOpen}
@@ -176,7 +182,7 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
   );
 }
 
-// Admin
+// ── Admin ──────────────────────────────────────────────────────────────────────
 
 function AdminMenu({ pathname, totalUnread, draftCount }: { pathname: string, totalUnread: number, draftCount: number }) {
   return (
@@ -198,7 +204,7 @@ function AdminMenu({ pathname, totalUnread, draftCount }: { pathname: string, to
   );
 }
 
-// Assignee
+// ── Assignee ───────────────────────────────────────────────────────────────────
 
 function AssigneeMenu({ pathname, totalUnread }: { pathname: string, totalUnread: number }) {
   return (
@@ -231,7 +237,7 @@ function PersonalMenu({ pathname }: { pathname: string }) {
   );
 }
 
-// USER
+// ── User ───────────────────────────────────────────────────────────────────────
 
 function UserMenuWrapper({ pathname, totalUnread }: { pathname: string; totalUnread: number }) {
   const searchParams = useSearchParams();
@@ -248,30 +254,114 @@ function UserMenu({ pathname, totalUnread, refParam }: { pathname: string; total
     <>
       <div className="mb-6 space-y-1">
         <div className="px-3 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Community</div>
-        <SidebarLink href="/user/community" label="Tickets" currentPath={pathname} forceActive={isCommunity}
-          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
+
+        {/* Public Feed (was "Tickets") */}
+        <SidebarLink
+          href="/user/community"
+          label="Public Feed"
+          currentPath={pathname}
+          forceActive={isCommunity}
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          }
         />
-        <SidebarLink href="/user/following" label="Following" currentPath={pathname} forceActive={isFollowing}
-          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>}
+
+        <SidebarLink
+          href="/user/following"
+          label="Following"
+          currentPath={pathname}
+          forceActive={isFollowing}
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+          }
         />
       </div>
+
       <div className="space-y-1">
         <div className="px-3 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Personal</div>
-        <SidebarLink href="/tickets/create" label="Upload" currentPath={pathname}
-          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>}
+
+        {/* My Tickets (was "Tickets") */}
+        <SidebarLink
+          href="/tickets"
+          label="My Tickets"
+          currentPath={pathname}
+          badgeCount={totalUnread}
+          forceActive={isPersonal}
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+            </svg>
+          }
         />
-        <SidebarLink href="/tickets" label="Tickets" currentPath={pathname} badgeCount={totalUnread} forceActive={isPersonal}
-          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>}
+
+        {/* New Request (was "Upload") */}
+        <SidebarLink
+          href="/tickets/create"
+          label="New Request"
+          currentPath={pathname}
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+            </svg>
+          }
         />
       </div>
     </>
   );
 }
 
-// Shared
+// ── Logout ─────────────────────────────────────────────────────────────────────
 
-function SidebarLink({ href, icon, label, currentPath, badgeCount, forceActive }: { href: string; icon: React.ReactNode; label: string; currentPath: string, badgeCount?: number, forceActive?: boolean }) {
-  const isActive = forceActive !== undefined ? forceActive : (currentPath === href || (href !== '/' && currentPath.startsWith(href)));
+function LogoutButton() {
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogout() {
+    setLoading(true);
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (_) {}
+    window.location.href = '/login';
+  }
+
+  return (
+    <button
+      onClick={handleLogout}
+      disabled={loading}
+      title="Sign out"
+      className="flex-shrink-0 h-9 w-9 flex items-center justify-center rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-950/30 border border-transparent hover:border-red-900/50 transition-all duration-200 disabled:opacity-50"
+    >
+      {loading ? (
+        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+        </svg>
+      ) : (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+// ── Shared ─────────────────────────────────────────────────────────────────────
+
+function SidebarLink({ href, icon, label, currentPath, badgeCount, forceActive }: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  currentPath: string;
+  badgeCount?: number;
+  forceActive?: boolean;
+}) {
+  const isActive = forceActive !== undefined
+    ? forceActive
+    : (currentPath === href || (href !== '/' && currentPath.startsWith(href)));
+
   return (
     <Link
       href={href}

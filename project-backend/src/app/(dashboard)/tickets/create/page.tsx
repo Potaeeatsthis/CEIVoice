@@ -1,5 +1,3 @@
-// src/app/(dashboard)/tickets/create/page.tsx
-
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -30,7 +28,7 @@ export default function CreateTicketPage() {
       try {
         const res = await fetch('/api/users/me', { credentials: 'include' });
         if (!res.ok) return;
-        const user = await res.json(); // GET /me returns user directly
+        const user = await res.json();
         if (user?.email) {
           setAccountEmail(user.email);
           setContactEmail(user.email);
@@ -40,7 +38,6 @@ export default function CreateTicketPage() {
     })();
   }, []);
 
-  // Sync contactEmail when checkbox toggles
   const handleUseAccountEmail = (checked: boolean) => {
     setUseAccountEmail(checked);
     if (checked) setContactEmail(accountEmail);
@@ -108,6 +105,7 @@ export default function CreateTicketPage() {
         method:      'POST',
         headers:     { 'Content-Type': 'application/json' },
         credentials: 'include',
+        // title is omitted — AI will generate it from message
         body: JSON.stringify({ message, contactEmail, img: uploadedUrls }),
       });
 
@@ -169,7 +167,6 @@ export default function CreateTicketPage() {
                 <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                   Contact Email <span className="text-red-500">*</span>
                 </label>
-                {/* Checkbox: use account email */}
                 {accountEmail && (
                   <label className="flex items-center gap-2 cursor-pointer group select-none">
                     <div className="relative">
@@ -207,7 +204,7 @@ export default function CreateTicketPage() {
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-600/60 focus:border-blue-600/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:select-none"
                 />
                 {useAccountEmail && (
-                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-medium text-white-500 bg-white-950/60 border border-white-800/50 px-2 py-0.5 rounded-full">
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-medium text-zinc-400 bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded-full">
                     account
                   </span>
                 )}
@@ -316,9 +313,7 @@ export default function CreateTicketPage() {
             </div>
 
             {/* Submit row */}
-            <div className="flex items-center justify-between gap-4 pt-1 pb-2">
-              <p className="text-xs text-zinc-600 leading-relaxed">
-              </p>
+            <div className="flex items-center justify-end gap-4 pt-1 pb-2">
               <button
                 type="submit"
                 disabled={!canSubmit}
@@ -433,8 +428,8 @@ export default function CreateTicketPage() {
               </p>
             </div>
           </div>
-        </div>
 
+        </div>
       </div>
     </div>
   );
