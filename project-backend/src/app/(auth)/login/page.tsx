@@ -11,9 +11,11 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const errorParam = searchParams.get('error');
+  const messageParam = searchParams.get('message');
 
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState(errorParam ?? '');
+  const [successMessage] = useState(messageParam ?? '');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -76,6 +78,12 @@ function LoginForm() {
         <h1 className="text-3xl font-bold tracking-tight text-white">Welcome Back</h1>
         <p className="text-sm text-zinc-400">Enter your credentials below to sign in</p>
       </div>
+
+      {successMessage && (
+        <div className="bg-green-900/30 border border-green-800 text-green-300 px-4 py-3 rounded-md text-sm">
+          {successMessage}
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-900/30 border border-red-800 text-red-300 px-4 py-3 rounded-md text-sm">
