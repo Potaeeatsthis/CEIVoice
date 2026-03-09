@@ -6,7 +6,7 @@ import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import type { Ticket } from '@/app/(dashboard)/user/following/page';
 
-const PAGE_SIZE = 7;
+const PAGE_SIZE = 5;
 
 export default function FollowingTicketTable({ tickets }: { tickets: Ticket[] }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,17 +49,22 @@ export default function FollowingTicketTable({ tickets }: { tickets: Ticket[] })
     );
   }, [visibleTickets, searchQuery]);
 
-  const totalPages = Math.ceil(processedTickets.length / PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(processedTickets.length / PAGE_SIZE));
   const paginatedTickets = processedTickets.slice(
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE
   );
 
+  const startItem = processedTickets.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const endItem   = Math.min(currentPage * PAGE_SIZE, processedTickets.length);
+
   if (visibleTickets.length === 0) {
     return (
-      <div className="space-y-4">
-        <SearchBar value={searchQuery} onChange={setSearchQuery} />
-        <div className="p-12 text-center text-zinc-500 border border-zinc-800 rounded-lg bg-zinc-950/40">
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 backdrop-blur-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-zinc-800 bg-zinc-900/30">
+          <SearchBar value={searchQuery} onChange={setSearchQuery} />
+        </div>
+        <div className="p-12 text-center text-zinc-500">
           You're not following any tickets yet.{' '}
           <Link href="/user/community" className="text-blue-400 hover:text-blue-300 underline">
             Browse the public feed
@@ -71,28 +76,29 @@ export default function FollowingTicketTable({ tickets }: { tickets: Ticket[] })
   }
 
   return (
-    <div className="space-y-4">
-      <SearchBar value={searchQuery} onChange={setSearchQuery} />
+    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 backdrop-blur-sm overflow-hidden">
 
-      <div className="space-y-3">
+      {/* ── Search bar ── */}
+      <div className="px-4 py-3 border-b border-zinc-800 bg-zinc-900/30">
+        <SearchBar value={searchQuery} onChange={setSearchQuery} />
+      </div>
+
+      {/* ── Ticket cards ── */}
+      <div className="divide-y divide-zinc-800/60">
         {paginatedTickets.map((ticket) => {
           const isUnfollowing = unfollowingIds.has(ticket.id);
           const displayDate = ticket.updated_at || ticket.created_at;
 
           return (
-            <Link
-              key={ticket.id}
-              href={`/tickets/${ticket.id}?ref=following`}
-              className="block"
-            >
-              <div className="relative border border-zinc-800 rounded-lg bg-zinc-950/60 hover:bg-zinc-900/60 hover:border-zinc-700 transition-all duration-150 p-5">
-                {/* Status badge top-right */}
+            <Link key={ticket.id} href={`/tickets/${ticket.id}?ref=following`} className="block">
+              <div className="relative hover:bg-zinc-900/40 transition-all duration-150 px-5 py-4">
+                {/* Status badge */}
                 <div className="absolute top-4 right-4">
                   <StatusBadge status={ticket.status} />
                 </div>
 
-                {/* Ticket ID + title */}
-                <div className="flex items-center gap-2 mb-2 pr-16">
+                {/* ID + title */}
+                <div className="flex items-center gap-2 mb-1.5 pr-16">
                   <span className="text-xs text-blue-400 font-mono font-semibold">#{ticket.id}</span>
                   {ticket.title && ticket.title !== 'Untitled Ticket' && (
                     <span className="text-white font-semibold text-base">{ticket.title}</span>
@@ -101,12 +107,12 @@ export default function FollowingTicketTable({ tickets }: { tickets: Ticket[] })
 
                 {/* Description */}
                 {ticket.description && (
-                  <p className="text-zinc-400 text-sm leading-relaxed mb-4 pr-16 line-clamp-2">
+                  <p className="text-zinc-400 text-sm leading-relaxed mb-3 pr-16 line-clamp-2">
                     &ldquo;{ticket.description}&rdquo;
                   </p>
                 )}
 
-                {/* Footer metadata */}
+                {/* Footer */}
                 <div className="flex items-center gap-4 text-xs text-zinc-500">
                   <span className="flex items-center gap-1.5">
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -117,7 +123,6 @@ export default function FollowingTicketTable({ tickets }: { tickets: Ticket[] })
                     })}
                   </span>
 
-                  {/* Unfollow button — matches Public Feed style */}
                   <button
                     onClick={(e) => handleUnfollow(ticket.id, e)}
                     disabled={isUnfollowing}
@@ -134,36 +139,47 @@ export default function FollowingTicketTable({ tickets }: { tickets: Ticket[] })
         })}
 
         {paginatedTickets.length === 0 && (
-          <div className="p-12 text-center text-zinc-500 border border-zinc-800 rounded-lg bg-zinc-950/40">
+          <div className="px-6 py-12 text-center text-zinc-500">
             No tickets match your search.
           </div>
         )}
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-2">
-          <span className="text-xs text-zinc-500">
-            Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, processedTickets.length)} of {processedTickets.length}
+      {/* ── Pagination ── */}
+      <div className="flex items-center justify-between px-6 py-3 border-t border-zinc-800 bg-zinc-900/30">
+        <span className="text-xs text-zinc-500">
+          Showing <span className="text-zinc-300 font-medium">{startItem}</span> to{' '}
+          <span className="text-zinc-300 font-medium">{endItem}</span> of{' '}
+          <span className="text-zinc-300 font-medium">{processedTickets.length}</span> results
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="p-1.5 rounded border border-zinc-700 bg-zinc-800 text-zinc-400 disabled:opacity-40 hover:bg-zinc-700 hover:text-white transition-colors"
+            aria-label="Previous page"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <span className="px-3 py-1 text-xs font-semibold rounded border border-zinc-600 bg-zinc-800 text-white min-w-[80px] text-center">
+            Page {currentPage} of {totalPages}
           </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1 text-xs font-medium rounded border border-zinc-700 bg-zinc-800 text-zinc-300 disabled:opacity-50 hover:bg-zinc-700 transition-colors"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 text-xs font-medium rounded border border-zinc-700 bg-zinc-800 text-zinc-300 disabled:opacity-50 hover:bg-zinc-700 transition-colors"
-            >
-              Next
-            </button>
-          </div>
+
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage >= totalPages}
+            className="p-1.5 rounded border border-zinc-700 bg-zinc-800 text-zinc-400 disabled:opacity-40 hover:bg-zinc-700 hover:text-white transition-colors"
+            aria-label="Next page"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -179,7 +195,7 @@ function SearchBar({ value, onChange }: { value: string; onChange: (v: string) =
         placeholder="Search followed tickets..."
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-zinc-950/40 border border-zinc-800 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 transition-all"
+        className="w-full bg-zinc-950/60 border border-zinc-800 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 transition-all"
       />
     </div>
   );

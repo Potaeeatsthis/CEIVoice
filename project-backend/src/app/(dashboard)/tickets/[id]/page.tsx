@@ -13,7 +13,6 @@ async function getData(ticketId: string) {
 
   if (!userId || userRole !== 'USER') return { authorized: false };
 
-  // Fetch the ticket (removed the strict DRAFT filter here so owners can see their own)
   const { data: ticket, error } = await supabaseAdmin
     .from('tickets')
     .select(`
@@ -27,12 +26,8 @@ async function getData(ticketId: string) {
 
   const isOwner = ticket.created_by === userId;
 
-  // Protect drafts: if it's a draft and you aren't the owner, hide it
-  if (ticket.status === 'DRAFT' && !isOwner) {
-    return null;
-  }
+  if (ticket.status === 'DRAFT' && !isOwner) return null;
 
-  // Public comments only for users (no internal notes)
   const { data: comments } = await supabaseAdmin
     .from('comments')
     .select('*, user:users(full_name)')
@@ -40,14 +35,12 @@ async function getData(ticketId: string) {
     .eq('is_internal', false)
     .order('created_at', { ascending: true });
 
-  // Fetch current user's name for the chat
   const { data: currentUserRecord } = await supabaseAdmin
     .from('users')
     .select('full_name')
     .eq('id', userId)
     .single();
 
-  // Check if following
   const { data: followData } = await supabaseAdmin
     .from('ticket_followers')
     .select('ticket_id')
@@ -69,6 +62,15 @@ async function getData(ticketId: string) {
     },
   };
 }
+
+const STATUS_STYLES: Record<string, string> = {
+  NEW:         'bg-blue-950/40 text-blue-400 border-blue-900',
+  IN_PROGRESS: 'bg-amber-950/40 text-amber-400 border-amber-900',
+  SOLVED:      'bg-emerald-950/40 text-emerald-400 border-emerald-900',
+  FAILED:      'bg-red-950/40 text-red-400 border-red-900',
+  MERGED:      'bg-purple-950/40 text-purple-400 border-purple-900',
+  DRAFT:       'bg-zinc-900 text-zinc-500 border-zinc-800',
+};
 
 export default async function UserTicketDetailPage({
   params,
@@ -92,27 +94,34 @@ export default async function UserTicketDetailPage({
   }
 
   const { ticket, comments, isOwner, isFollowing, currentUser } = data;
+  const backHref = isOwner ? '/tickets' : '/user/community';
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4 pb-5 border-b border-zinc-800">
+      {/* Header — matches admin style exactly */}
+      <div className="flex items-center gap-3 pb-5 border-b border-zinc-800">
+        {/* Circular back button */}
         <Link
-          href={isOwner ? '/tickets' : '/user/community'}
+          href={backHref}
           className="h-8 w-8 flex items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-all flex-shrink-0"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-          </svg>
+          &larr;
         </Link>
 
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="text-zinc-600 font-mono text-sm flex-shrink-0">#{ticket.id}</span>
-          <h1 className="text-xl font-bold text-white truncate">
-            {ticket.title || 'Untitled Request'}
-          </h1>
-        </div>
+        {/* Ticket number */}
+        <span className="text-zinc-500 font-mono text-sm flex-shrink-0">#{ticket.id}</span>
 
+        {/* Title */}
+        <h1 className="text-xl font-bold text-white truncate">
+          {ticket.title || 'Untitled Request'}
+        </h1>
+
+        {/* Status badge — same as admin header */}
+        <span className={`flex-shrink-0 px-2.5 py-0.5 rounded text-xs font-semibold border ${STATUS_STYLES[ticket.status] ?? STATUS_STYLES.DRAFT}`}>
+          {ticket.status.replace('_', ' ')}
+        </span>
+
+        {/* Following badge on the right */}
         {!isOwner && (
           <span className="ml-auto flex-shrink-0 text-xs text-zinc-400 bg-zinc-900 border border-zinc-800 px-2.5 py-1 rounded-full">
             {isFollowing ? 'Following' : 'Community Ticket'}

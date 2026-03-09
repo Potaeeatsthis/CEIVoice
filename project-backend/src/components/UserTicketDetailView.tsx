@@ -270,7 +270,7 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-black/20" style={{ maxHeight: '480px' }}>
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-black/20 min-h-0">
           
           {/* ORIGINAL REQUEST */}
           <div className={`flex gap-3 ${isOwner ? 'flex-row-reverse' : 'flex-row'}`}>
