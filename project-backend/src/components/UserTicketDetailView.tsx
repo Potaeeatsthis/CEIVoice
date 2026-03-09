@@ -63,22 +63,15 @@ const PRIORITY_TEXT: Record<string, string> = {
 };
 
 // Helper for rendering attachments identically to the admin view
-function getOriginalFileName(url: string, fallbackIndex: number): string {
-  const rawName = decodeURIComponent(url.split('/').pop() || '');
-  const underscoreIdx = rawName.indexOf('_');
-  return underscoreIdx !== -1 ? rawName.slice(underscoreIdx + 1) : `Attachment ${fallbackIndex + 1}`;
-}
-
-function AttachmentPreview({ url, index = 0 }: { url: string; index?: number }) {
+function AttachmentPreview({ url }: { url: string }) {
   const isImage = url.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null;
-  const fileName = getOriginalFileName(url, index);
 
   if (isImage) {
     return (
       <a href={url} target="_blank" rel="noopener noreferrer" className="block mt-2">
         <img
           src={url}
-          alt={fileName}
+          alt="attachment"
           className="max-h-48 rounded-lg border border-zinc-700 hover:border-zinc-500 transition-colors"
         />
       </a>
@@ -90,7 +83,7 @@ function AttachmentPreview({ url, index = 0 }: { url: string; index?: number }) 
       <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
       </svg>
-      <span className="text-xs text-blue-400 underline">{fileName}</span>
+      <span className="text-xs text-blue-400 underline">View Attachment</span>
     </a>
   );
 }
@@ -292,7 +285,7 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
               <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-2xl px-4 py-3 text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap ${isOwner ? 'rounded-tr-none' : 'rounded-tl-none'}`}>
                 {ticket.description}
                 {ticket.img && ticket.img.map((url, idx) => (
-                  <AttachmentPreview key={idx} url={url} index={idx} />
+                  <AttachmentPreview key={idx} url={url} />
                 ))}
               </div>
             </div>
@@ -338,7 +331,7 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
                   {comment.attachments && comment.attachments.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-1">
                       {comment.attachments.map((url, i) => (
-                        <AttachmentPreview key={i} url={url} index={i} />
+                        <AttachmentPreview key={i} url={url} />
                       ))}
                     </div>
                   )}
@@ -482,10 +475,9 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
             <div className="space-y-2">
               {ticket.img.map((url, i) => {
                 const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
-                const fileName = getOriginalFileName(url, i);
                 return isImage ? (
                   <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                    <img src={url} alt={fileName} className="w-full rounded-lg border border-zinc-800 hover:border-zinc-600 transition-colors" />
+                    <img src={url} alt={`attachment-${i}`} className="w-full rounded-lg border border-zinc-800 hover:border-zinc-600 transition-colors" />
                   </a>
                 ) : (
                   <a key={i} href={url} target="_blank" rel="noopener noreferrer"
@@ -493,7 +485,7 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                     </svg>
-                    {fileName}
+                    Attachment {i + 1}
                   </a>
                 );
               })}
@@ -539,7 +531,7 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
           </div>
         </div>
       </div>
-    </div>
+    </div> 
   );
 }
 
