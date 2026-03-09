@@ -323,13 +323,18 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   const handleSaveChanges = async () => {
     setIsUpdating(true);
     try {
-      const payload = {
-        status: draftStatus,
-        priority: draftPriority,
-        category: draftCategory,
-        assigned_to: draftAssignee || null,
-        deadline: draftDeadline ? new Date(draftDeadline).toISOString() : null,
-      };
+      const payload: any = {};
+
+      if (draftStatus !== ticket.status) payload.status = draftStatus;
+      if (draftPriority !== ticket.priority) payload.priority = draftPriority;
+      if (draftCategory !== (ticket.category || 'General')) payload.category = draftCategory;
+      if (draftAssignee !== (ticket.assigned_to || '')) payload.assigned_to = draftAssignee || null;
+
+      const originalDeadline = ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '';
+      if (draftDeadline !== originalDeadline) {
+        payload.deadline = draftDeadline ? new Date(draftDeadline).toISOString() : null;
+      }
+
       const res = await fetch(`/api/tickets/${ticket.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

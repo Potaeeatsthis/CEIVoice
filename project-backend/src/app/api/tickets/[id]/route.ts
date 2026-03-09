@@ -220,6 +220,24 @@ export async function PATCH(
         });
       }
 
+    // AUDIT LOG
+    const auditActions: string[] = [];
+    if (status !== undefined && status !== existingTicket.status) auditActions.push(`Status changed to ${status}`);
+    if (assigned_to !== undefined) auditActions.push(assigned_to ? `Assigned to user` : `Assignee removed`);
+    if (priority !== undefined) auditActions.push(`Priority set to ${priority}`);
+    if (deadline !== undefined) auditActions.push(deadline ? `Deadline set to ${new Date(deadline).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })}` : `Deadline cleared`);
+    if (category !== undefined) auditActions.push(`Category set to ${category}`);
+
+    if (auditActions.length > 0) {
+      await supabaseAdmin.from('audit_logs').insert(
+        auditActions.map((action) => ({
+          ticket_id: Number(id),
+          action,
+          changed_by: userId,
+        }))
+      );
+    }
+
     // EMAIL NOTIFICATION LOGIC (Fire & Forget)
     const triggerEmails = async () => {
         if (status === 'SOLVED') {
