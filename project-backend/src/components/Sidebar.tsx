@@ -136,7 +136,7 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
             <button
               onClick={() => userId && setProfileOpen(true)}
               disabled={!userId}
-              className="flex-1 flex items-center gap-3 px-2 py-2 rounded-lg group hover:bg-zinc-800/60 transition-all duration-200 disabled:cursor-default text-left"
+              className="flex-1 flex items-center gap-3 px-2 py-2 rounded-lg group hover:bg-zinc-800/60 transition-all duration-200 cursor-pointer disabled:cursor-default text-left"
               title="Edit profile"
             >
               <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white border border-zinc-700 flex-shrink-0 group-hover:border-zinc-600 transition-colors overflow-hidden">
@@ -150,12 +150,6 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
                 <p className="text-sm font-medium text-white truncate">{localName}</p>
                 <p className="text-xs text-zinc-500 truncate capitalize">{userRole.toLowerCase()}</p>
               </div>
-              {userId && (
-                <svg className="w-3.5 h-3.5 text-zinc-600 group-hover:text-zinc-400 flex-shrink-0 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              )}
             </button>
 
             {/* Logout button */}
@@ -332,7 +326,7 @@ function LogoutButton() {
       onClick={handleLogout}
       disabled={loading}
       title="Sign out"
-      className="flex-shrink-0 h-9 w-9 flex items-center justify-center rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-950/30 border border-transparent hover:border-red-900/50 transition-all duration-200 disabled:opacity-50"
+      className="flex-shrink-0 h-9 w-9 flex items-center justify-center rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-950/30 border border-transparent hover:border-red-900/50 transition-all duration-200 cursor-pointer disabled:opacity-50"
     >
       {loading ? (
         <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
