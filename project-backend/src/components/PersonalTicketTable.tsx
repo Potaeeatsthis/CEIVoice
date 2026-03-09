@@ -180,7 +180,7 @@ export default function PersonalTicketTable({ tickets, userId }: { tickets: Tick
                 <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={ticket.status} /></td>
                 <td className="px-6 py-4 whitespace-nowrap"><PriorityIcon priority={ticket.priority} /></td>
                 <td className="px-6 py-4 text-zinc-500 whitespace-nowrap">
-                  {new Date(ticket.created_at).toLocaleString()}
+                  {new Date(ticket.created_at).toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </td>
                 <td className="px-6 py-4 text-zinc-400 whitespace-nowrap">
                   {ticket.assigned_to_user?.full_name || <span className="text-zinc-600">Unassigned</span>}
