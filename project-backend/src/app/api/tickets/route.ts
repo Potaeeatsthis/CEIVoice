@@ -91,7 +91,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { email, message, title } = body;
+    const { email, message, title, img } = body;
     const userId = request.headers.get('x-user-id');
 
     if (!message) {
@@ -109,7 +109,8 @@ export async function POST(request: Request) {
         created_by: userId || null,
         user_email: email,
         origin: 'web',
-        title: title || null
+        title: title || null,
+        img: img || null
       })
       .select()
       .single();

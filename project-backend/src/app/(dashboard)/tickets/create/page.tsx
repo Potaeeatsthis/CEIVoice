@@ -50,9 +50,7 @@ export default function CreateTicketPage() {
   const onDrop      = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const dropped = Array.from(e.dataTransfer.files).filter(f =>
-      ['image/jpeg','image/png','image/gif','image/webp','application/pdf'].includes(f.type)
-    );
+    const dropped = Array.from(e.dataTransfer.files);
     setFiles(prev => [...prev, ...dropped]);
   };
 
@@ -64,8 +62,8 @@ export default function CreateTicketPage() {
 
   // ── Upload ─────────────────────────────────────────────────────────────────
   const uploadFile = async (file: File): Promise<string> => {
-    const ext      = file.name.split('.').pop();
-    const name     = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const name     = `${Date.now()}-${Math.random().toString(36).slice(2)}_${safeName}`;
     const filePath = `ticket-uploads/${name}`;
 
     const { error } = await supabaseBrowser.storage
@@ -299,13 +297,13 @@ export default function CreateTicketPage() {
                   <p className={`text-sm font-medium transition-colors ${isDragging ? 'text-blue-300' : 'text-zinc-400'}`}>
                     {isDragging ? 'Drop files here' : 'Click to upload or drag & drop'}
                   </p>
-                  <p className="text-xs text-zinc-600 mt-0.5">PDF, JPG, PNG, WebP — max 10MB each</p>
+                  <p className="text-xs text-zinc-600 mt-0.5">Images, PDFs, code files & more — max 10MB each</p>
                 </div>
                 <input
                   ref={fileInputRef}
                   type="file"
                   className="hidden"
-                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,.ts,.tsx,.js,.jsx,.py,.java,.css,.html,.json,.txt,.csv,.xml,.md,.sql,.yml,.yaml,.env,.log,.zip,.rar"
                   multiple
                   onChange={addFiles}
                 />

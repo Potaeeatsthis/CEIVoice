@@ -109,15 +109,22 @@ function PriorityDisplay({ priority }: { priority: string }) {
   );
 }
 
-function AttachmentPreview({ url }: { url: string }) {
-  const isImage = url.match(/\.(jpeg|jpg|gif|png)$/i) != null;
+function getOriginalFileName(url: string, fallbackIndex: number): string {
+  const rawName = decodeURIComponent(url.split('/').pop() || '');
+  const underscoreIdx = rawName.indexOf('_');
+  return underscoreIdx !== -1 ? rawName.slice(underscoreIdx + 1) : `Attachment ${fallbackIndex + 1}`;
+}
+
+function AttachmentPreview({ url, index = 0 }: { url: string; index?: number }) {
+  const isImage = url.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null;
+  const fileName = getOriginalFileName(url, index);
 
   if (isImage) {
     return (
       <a href={url} target="_blank" rel="noopener noreferrer" className="block mt-2">
         <img
           src={url}
-          alt="attachment"
+          alt={fileName}
           className="max-h-48 rounded-lg border border-zinc-700 hover:border-zinc-500 transition-colors"
         />
       </a>
@@ -129,7 +136,7 @@ function AttachmentPreview({ url }: { url: string }) {
       <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
       </svg>
-      <span className="text-xs text-blue-400 underline">View Attachment</span>
+      <span className="text-xs text-blue-400 underline">{fileName}</span>
     </a>
   );
 }
@@ -414,7 +421,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
               <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-2xl rounded-tl-none px-4 py-3 text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap">
                 {ticket.description}
                 {ticket.img && ticket.img.map((url, idx) => (
-                  <AttachmentPreview key={idx} url={url} />
+                  <AttachmentPreview key={idx} url={url} index={idx} />
                 ))}
               </div>
             </div>
@@ -448,7 +455,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                   <div className={`px-4 py-2.5 shadow-sm text-sm whitespace-pre-wrap break-words border ${isInternalNote ? 'bg-amber-950/10 border-amber-900/40 text-amber-100 rounded-2xl' : isMe ? 'bg-zinc-900 border-zinc-800 text-zinc-300 rounded-2xl rounded-tr-none' : 'bg-zinc-700 border-zinc-600 text-white rounded-2xl rounded-tl-none'}`}>
                     {comment.content || comment.message}
                     {comment.attachments && comment.attachments.map((url, idx) => (
-                      <AttachmentPreview key={idx} url={url} />
+                      <AttachmentPreview key={idx} url={url} index={idx} />
                     ))}
                   </div>
                 </div>

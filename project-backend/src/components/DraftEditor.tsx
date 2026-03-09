@@ -19,6 +19,7 @@ type Ticket = {
   created_at: string;
   assigned_to: string | null;
   created_by_user: { email: string };
+  img?: string[] | null;
 };
 
 export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allUsers: User[] }) {
@@ -107,26 +108,31 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
           <button 
             onClick={() => handleAction('SAVE')} 
             disabled={loading}
-            className="px-4 py-2 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all disabled:opacity-50 whitespace-nowrap"
+            className="px-4 py-2 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all disabled:opacity-50 whitespace-nowrap flex items-center gap-2"
           >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
             Save Changes
           </button>
-          <button 
-            onClick={() => handleAction('SUBMIT')} 
-            disabled={loading}
-            className="px-4 py-2 text-xs font-semibold text-black bg-white hover:bg-zinc-100 rounded-[10px] transition-all disabled:opacity-50 flex items-center justify-center gap-2 whitespace-nowrap"
-          >
-            {loading ? 'Processing...' : (
-                <>
-                  Approve & Submit
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                </>
-            )}
-          </button>
+          <div className="relative group">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500/40 via-green-400/30 to-teal-500/40 rounded-xl blur-sm opacity-60 group-hover:opacity-100 transition-opacity duration-300" />
+            <button 
+              onClick={() => handleAction('SUBMIT')} 
+              disabled={loading}
+              className="relative px-4 py-2 text-xs font-semibold text-black bg-white hover:bg-zinc-100 rounded-[10px] transition-all disabled:opacity-50 flex items-center justify-center gap-2 whitespace-nowrap"
+            >
+              {loading ? 'Processing...' : (
+                  <>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                    Approve & Submit
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                  </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1 overflow-hidden min-h-0 pb-6" style={{ gridAutoRows: '1fr' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 overflow-hidden min-h-0 pb-6">
         
         {/* --- LEFT: MAIN CONTENT (8 cols) --- */}
         <div className="lg:col-span-8 flex flex-col min-h-0 h-full">
@@ -167,11 +173,12 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
         </div>
 
         {/* --- RIGHT: SIDEBAR (4 cols) --- */}
-        <div className="lg:col-span-4 flex flex-col min-h-0 gap-6">
+        <div className="lg:col-span-4 flex flex-col min-h-0 gap-4 overflow-y-auto">
           
           {/* Metadata Card */}
-          <div className={`${cardBase} space-y-6 flex-1`}>
-            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-4 border-b border-zinc-800 pb-2">
+          <div className={`${cardBase} space-y-5`}>
+            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-4 border-b border-zinc-800/80 pb-3 flex items-center gap-2">
+              <svg className="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
               Configuration
             </h3>
 
@@ -251,7 +258,46 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
             </div>
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+          {/* Attachments Card */}
+          {ticket.img && ticket.img.length > 0 && (
+            <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/30 backdrop-blur-md p-5 shadow-sm">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3 border-b border-zinc-800/80 pb-3 flex items-center gap-2">
+                <svg className="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                Files
+                <span className="ml-auto text-[10px] font-medium text-zinc-600 normal-case tracking-normal">{ticket.img.length} {ticket.img.length === 1 ? 'file' : 'files'}</span>
+              </h3>
+              <div className="space-y-2">
+                {ticket.img.map((url, i) => {
+                  const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+                  const rawName = decodeURIComponent(url.split('/').pop() || '');
+                  // Extract original filename: format is "timestamp-random_originalname.ext"
+                  const underscoreIdx = rawName.indexOf('_');
+                  const displayName = underscoreIdx !== -1 ? rawName.slice(underscoreIdx + 1) : `Attachment ${i + 1}`;
+                  return isImage ? (
+                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block group">
+                      <div className="rounded-xl overflow-hidden border border-zinc-800 group-hover:border-zinc-600 transition-colors">
+                        <img src={url} alt={`attachment-${i}`} className="w-full h-32 object-cover" />
+                      </div>
+                      <p className="text-[10px] text-zinc-600 mt-1 truncate group-hover:text-zinc-400 transition-colors">{displayName}</p>
+                    </a>
+                  ) : (
+                    <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-3 text-xs text-zinc-400 hover:text-zinc-200 bg-black/20 border border-zinc-800 hover:border-zinc-700 px-3 py-2.5 rounded-xl transition-all">
+                      <svg className="w-4 h-4 text-zinc-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      <span className="truncate">{displayName}</span>
+                      <svg className="w-3 h-3 ml-auto text-zinc-700 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/30 backdrop-blur-md p-5 shadow-sm">
              <div className="flex items-center justify-between gap-4">
                
                <div className="flex items-center gap-3 min-w-0">
