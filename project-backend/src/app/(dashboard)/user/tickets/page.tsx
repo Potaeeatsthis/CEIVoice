@@ -1,111 +1,81 @@
-import Link from 'next/link';
+// src/app/(dashboard)/user/tickets/page.tsx
+
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
+import PersonalTicketTable from '@/components/PersonalTicketTable';
 
-// Helper to fetch ONLY the current user's tickets
-async function getUserTickets() {
+export type Ticket = {
+  id: string;
+  title: string | null;
+  description: string;
+  status: string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  created_at: string;
+  deadline: string | null;
+};
+
+async function getUserTickets(): Promise<{ tickets: Ticket[]; userId: string }> {
   const cookieStore = await cookies();
   const userId = cookieStore.get('user_id')?.value;
 
-  if (!userId) return [];
+  if (!userId) return { tickets: [], userId: '' };
 
   const { data, error } = await supabaseAdmin
     .from('tickets')
     .select('*')
-    .eq('created_by', userId) // STRICT FILTER: Only show my own tickets
+    .eq('created_by', userId)
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error("Error fetching user tickets:", error.message);
-    return [];
+    console.error('Error fetching user tickets:', error.message);
+    return { tickets: [], userId };
   }
-  
-  return (data as any[]) || [];
+
+  return { tickets: data || [], userId };
 }
 
 export default async function UserTicketDashboard() {
-  const tickets = await getUserTickets();
+  const { tickets, userId } = await getUserTickets();
+
+  const total = tickets.length;
+  const inProgress = tickets.filter(t => t.status === 'IN_PROGRESS').length;
+  const solved = tickets.filter(t => t.status === 'SOLVED').length;
+  const overdue = tickets.filter(t => {
+    if (!t.deadline || ['SOLVED', 'MERGED', 'FAILED', 'DRAFT'].includes(t.status)) return false;
+    return new Date(t.deadline) < new Date();
+  }).length;
 
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-center">
+    <div className="flex flex-col h-[calc(100vh-64px)]">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">My Tickets</h2>
+          <h1 className="text-3xl font-bold tracking-tight text-white">My Tickets</h1>
           <p className="text-zinc-400 mt-1">Track and manage your support requests.</p>
         </div>
-        {/* Button to Create New Ticket */}
-        <Link 
-          href="/tickets/create" 
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md text-sm font-medium transition-colors"
-        >
-          + New Ticket
-        </Link>
       </div>
 
-      <div className="rounded-md border border-zinc-800 bg-zinc-950/40 backdrop-blur-sm overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-zinc-800 bg-zinc-900/50 text-zinc-400">
-              <th className="px-6 py-3 font-medium">Subject</th>
-              <th className="px-6 py-3 font-medium">Status</th>
-              <th className="px-6 py-3 font-medium">Priority</th>
-              <th className="px-6 py-3 font-medium text-right">Date</th>
-              <th className="px-6 py-3 font-medium text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800">
-            {tickets.map((ticket) => (
-              <tr key={ticket.id} className="group hover:bg-zinc-900/30 transition-colors">
-                <td className="px-6 py-4">
-                  <span className="font-medium text-zinc-200 block">
-                    {ticket.title || 'Untitled Ticket'}
-                  </span>
-                  <span className="text-xs text-zinc-500 truncate max-w-[200px] block">
-                    {ticket.description}
-                  </span>
-                </td>
-                <td className="px-6 py-4"><StatusBadge status={ticket.status} /></td>
-                <td className="px-6 py-4"><PriorityBadge priority={ticket.priority} /></td>
-                <td className="px-6 py-4 text-right text-zinc-500">
-                  {new Date(ticket.created_at).toLocaleDateString()}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <Link href={`/user/tickets/${ticket.id}`} className="text-blue-400 hover:text-blue-300 hover:underline">
-                    View
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {tickets.length === 0 && (
-          <div className="p-12 text-center text-zinc-500 border-t border-zinc-800">
-            You haven't created any tickets yet.
-          </div>
-        )}
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <StatCard title="Total Tickets" value={total} color="text-white" border="border-zinc-800" />
+        <StatCard title="In Progress" value={inProgress} color="text-amber-400" border="border-amber-900/50" bg="bg-amber-950/10" />
+        <StatCard title="Overdue" value={overdue} color="text-red-400" border="border-red-900/50" bg="bg-red-950/10" />
+        <StatCard title="Solved" value={solved} color="text-emerald-400" border="border-emerald-900/50" bg="bg-emerald-950/10" />
+      </div>
+
+      {/* Table */}
+      <div className="flex-1 min-h-0">
+        <PersonalTicketTable tickets={tickets} userId={userId} />
       </div>
     </div>
   );
 }
 
-// --- Simple Badges (Duplicate of Admin ones, but kept simple here) ---
-
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    NEW: "bg-blue-950/30 text-blue-400 border-blue-900",
-    IN_PROGRESS: "bg-amber-950/30 text-amber-400 border-amber-900",
-    SOLVED: "bg-emerald-950/30 text-emerald-400 border-emerald-900",
-    MERGED: "bg-purple-950/30 text-purple-400 border-purple-900",
-    DRAFT: "bg-zinc-900 text-zinc-500 border-zinc-800"
-  };
+function StatCard({ title, value, color, border, bg = 'bg-zinc-950/40' }: { title: string; value: number; color: string; border: string; bg?: string }) {
   return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium border ${styles[status] || styles.DRAFT}`}>
-      {status.replace('_', ' ')}
-    </span>
+    <div className={`p-5 rounded-xl border ${border} ${bg} backdrop-blur-sm flex flex-col justify-center`}>
+      <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">{title}</span>
+      <span className={`text-3xl font-bold ${color}`}>{value}</span>
+    </div>
   );
-}
-
-function PriorityBadge({ priority }: { priority: string }) {
-  const color = priority === 'HIGH' ? 'text-red-400' : priority === 'MEDIUM' ? 'text-orange-400' : 'text-zinc-500';
-  return <span className={`text-xs ${color} font-medium`}>{priority}</span>;
 }
