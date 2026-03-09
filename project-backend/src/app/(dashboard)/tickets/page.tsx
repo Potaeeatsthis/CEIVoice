@@ -151,24 +151,15 @@ export default async function TicketsPage(props: {
 }
 
 function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
-  const styles: Record<string, { card: string; value: string; icon: string }> = {
-    zinc:    { card: 'border-zinc-800/60 bg-zinc-900/40',       value: 'text-white',       icon: 'text-zinc-500' },
-    rose:    { card: 'border-rose-900/40 bg-rose-950/10',       value: 'text-rose-400',    icon: 'text-rose-500/60' },
-    amber:   { card: 'border-amber-900/40 bg-amber-950/10',     value: 'text-amber-400',   icon: 'text-amber-500/60' },
-    emerald: { card: 'border-emerald-900/40 bg-emerald-950/10', value: 'text-emerald-400', icon: 'text-emerald-500/60' },
-  };
-  const icons: Record<string, React.ReactNode> = {
-    zinc:    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>,
-    rose:    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-    amber:   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
-    emerald: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  const styles: Record<string, { card: string; value: string }> = {
+    zinc:    { card: 'border-zinc-800/60 bg-zinc-900/40',       value: 'text-white' },
+    rose:    { card: 'border-rose-900/40 bg-rose-950/10',       value: 'text-rose-400' },
+    amber:   { card: 'border-amber-900/40 bg-amber-950/10',     value: 'text-amber-400' },
+    emerald: { card: 'border-emerald-900/40 bg-emerald-950/10', value: 'text-emerald-400' },
   };
   const s = styles[color] || styles.zinc;
   return (
     <div className={`rounded-xl border p-4 backdrop-blur-sm ${s.card} transition-colors duration-200 hover:border-zinc-700/60`}>
-      <div className="flex items-center justify-between mb-2">
-        <span className={s.icon}>{icons[color]}</span>
-      </div>
       <div className={`text-2xl font-bold tracking-tight ${s.value}`}>{value}</div>
       <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium mt-1">{label}</div>
     </div>
