@@ -61,15 +61,15 @@ export default async function CommunityPage() {
   const { tickets, followedIds } = await getCommunityData(userId);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
+    <div className="flex flex-col h-[calc(100vh-64px)]">
+      <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white">Public Feed</h1>
           <p className="text-sm text-zinc-500 mt-1">Browse and follow tickets from the community</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-xl px-5 py-4">
           <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Total Tickets</p>
           <p className="text-2xl font-bold text-white">{tickets.length}</p>
@@ -84,7 +84,9 @@ export default async function CommunityPage() {
         </div>
       </div>
 
-      <CommunityTicketTable tickets={tickets} initialFollowedIds={followedIds} />
+      <div className="flex-1 min-h-0">
+        <CommunityTicketTable tickets={tickets} initialFollowedIds={followedIds} />
+      </div>
     </div>
   );
 }

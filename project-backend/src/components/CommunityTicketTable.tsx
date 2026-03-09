@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 
 type Ticket = {
@@ -20,17 +20,10 @@ type Props = {
   initialFollowedIds: number[];
 };
 
-const PAGE_SIZE = 7;
-
 export default function CommunityTicketTable({ tickets, initialFollowedIds }: Props) {
   const [followedIds, setFollowedIds] = useState<Set<number>>(new Set(initialFollowedIds));
   const [loadingIds, setLoadingIds] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
 
   async function toggleFollow(ticketId: number, e: React.MouseEvent) {
     e.preventDefault();
@@ -68,12 +61,6 @@ export default function CommunityTicketTable({ tickets, initialFollowedIds }: Pr
     );
   }, [tickets, searchQuery]);
 
-  const totalPages = Math.ceil(processedTickets.length / PAGE_SIZE);
-  const paginatedTickets = processedTickets.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
-  );
-
   if (tickets.length === 0) {
     return (
       <div className="p-12 text-center text-zinc-500 border border-zinc-800 rounded-md bg-zinc-950/40">
@@ -100,7 +87,7 @@ export default function CommunityTicketTable({ tickets, initialFollowedIds }: Pr
 
       {/* Cards */}
       <div className="space-y-3">
-        {paginatedTickets.map((ticket) => {
+        {processedTickets.map((ticket) => {
           const isFollowing = followedIds.has(ticket.id);
           const isLoading = loadingIds.has(ticket.id);
           const refParam = isFollowing ? 'following' : 'community';
@@ -168,37 +155,14 @@ export default function CommunityTicketTable({ tickets, initialFollowedIds }: Pr
           );
         })}
 
-        {paginatedTickets.length === 0 && (
+        {processedTickets.length === 0 && (
           <div className="p-12 text-center text-zinc-500 border border-zinc-800 rounded-md bg-zinc-950/40">
             No tickets match your search.
           </div>
         )}
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-2">
-          <span className="text-xs text-zinc-500">
-            Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, processedTickets.length)} of {processedTickets.length}
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1 text-xs font-medium rounded border border-zinc-700 bg-zinc-800 text-zinc-300 disabled:opacity-50 hover:bg-zinc-700 transition-colors"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 text-xs font-medium rounded border border-zinc-700 bg-zinc-800 text-zinc-300 disabled:opacity-50 hover:bg-zinc-700 transition-colors"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
