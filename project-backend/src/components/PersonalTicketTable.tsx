@@ -240,40 +240,42 @@ export default function PersonalTicketTable({ tickets, userId }: { tickets: Tick
       </div>
 
       {/* ── Pagination ── */}
-      <div className="flex items-center justify-between px-6 py-3 border-t border-zinc-800 bg-zinc-900/30">
-        <span className="text-xs text-zinc-500">
-          Showing <span className="text-zinc-300 font-medium">{startItem}</span> to{' '}
-          <span className="text-zinc-300 font-medium">{endItem}</span> of{' '}
-          <span className="text-zinc-300 font-medium">{processedTickets.length}</span> results
-        </span>
-        <div className="flex items-center gap-2">
+      {totalPages > 1 && (
+      <div className="flex items-center justify-between px-5 py-3.5 border-t border-zinc-800/60 bg-zinc-950/60 backdrop-blur-sm">
+        <p className="text-[13px] text-zinc-500">
+          Showing <span className="font-medium text-zinc-300">{startItem}</span> to{' '}
+          <span className="font-medium text-zinc-300">{endItem}</span> of{' '}
+          <span className="font-medium text-zinc-300">{processedTickets.length}</span> results
+        </p>
+        <nav className="flex items-center gap-1.5">
           <button
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className="p-1.5 rounded border border-zinc-700 bg-zinc-800 text-zinc-400 disabled:opacity-40 hover:bg-zinc-700 hover:text-white transition-colors"
+            className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-500"
             aria-label="Previous page"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
 
-          <span className="px-3 py-1 text-xs font-semibold rounded border border-zinc-600 bg-zinc-800 text-white min-w-[80px] text-center">
+          <span className="inline-flex items-center px-3.5 py-1.5 text-xs font-medium text-zinc-300 bg-zinc-800/60 rounded-lg border border-zinc-700/50">
             Page {currentPage} of {totalPages}
           </span>
 
           <button
             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
             disabled={currentPage >= totalPages}
-            className="p-1.5 rounded border border-zinc-700 bg-zinc-800 text-zinc-400 disabled:opacity-40 hover:bg-zinc-700 hover:text-white transition-colors"
+            className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-500"
             aria-label="Next page"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
             </svg>
           </button>
-        </div>
+        </nav>
       </div>
+      )}
     </div>
   );
 }

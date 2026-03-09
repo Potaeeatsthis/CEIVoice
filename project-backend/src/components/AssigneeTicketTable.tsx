@@ -237,36 +237,39 @@ export default function AssigneeTicketTable({
 
       {/* ================= PAGINATION ================= */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 p-4 border-t border-zinc-800 bg-zinc-900/20">
-          <button
-            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-            disabled={currentPage === 1}
-            className="px-3 py-1 border border-zinc-700 rounded disabled:opacity-40 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-          >
-            ←
-          </button>
-
-          {Array.from({ length: totalPages }, (_, i) => (
+        <div className="flex items-center justify-between px-5 py-3.5 border-t border-zinc-800/60 bg-zinc-950/60 backdrop-blur-sm">
+          <p className="text-[13px] text-zinc-500">
+            Showing <span className="font-medium text-zinc-300">{(currentPage - 1) * ticketsPerPage + 1}</span> to{' '}
+            <span className="font-medium text-zinc-300">{Math.min(currentPage * ticketsPerPage, filteredTickets.length)}</span> of{' '}
+            <span className="font-medium text-zinc-300">{filteredTickets.length}</span> results
+          </p>
+          <nav className="flex items-center gap-1.5">
             <button
-              key={i}
-              onClick={() => setCurrentPage(i + 1)}
-              className={`px-3 py-1 rounded border transition-colors ${
-                currentPage === i + 1
-                  ? 'bg-zinc-700 border-zinc-500 text-white'
-                  : 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800'
-              }`}
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-500"
+              aria-label="Previous page"
             >
-              {i + 1}
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+              </svg>
             </button>
-          ))}
 
-          <button
-            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-            disabled={currentPage === totalPages}
-            className="px-3 py-1 border border-zinc-700 rounded disabled:opacity-40 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-          >
-            →
-          </button>
+            <span className="inline-flex items-center px-3.5 py-1.5 text-xs font-medium text-zinc-300 bg-zinc-800/60 rounded-lg border border-zinc-700/50">
+              Page {currentPage} of {totalPages}
+            </span>
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-500"
+              aria-label="Next page"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </nav>
         </div>
       )}
     </div>

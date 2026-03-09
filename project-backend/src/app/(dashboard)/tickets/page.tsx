@@ -4,16 +4,7 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
 import PersonalTicketTable from '@/components/PersonalTicketTable';
-
-export type Ticket = {
-  id: string;
-  title: string | null;
-  description: string;
-  status: string;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-  created_at: string;
-  deadline: string | null;
-};
+import type { Ticket } from '@/components/PersonalTicketTable';
 
 /* ---------------- Fetch ONLY current user's tickets ---------------- */
 async function getUserTickets(): Promise<{ tickets: Ticket[]; userId: string }> {
@@ -50,9 +41,9 @@ export default async function TicketsPage() {
   }).length;
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col h-[calc(100vh-64px)]">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
             My Tickets
@@ -64,7 +55,7 @@ export default async function TicketsPage() {
       </div>
 
       {/* Stats Highlight Boxes */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard title="Total Tickets" value={total} color="text-white" border="border-zinc-800" />
         <StatCard title="In Progress" value={inProgress} color="text-amber-400" border="border-amber-900/50" bg="bg-amber-950/10" />
         <StatCard title="Overdue" value={overdue} color="text-red-400" border="border-red-900/50" bg="bg-red-950/10" />
@@ -72,7 +63,9 @@ export default async function TicketsPage() {
       </div>
 
       {/* Interactive Client Table */}
-      <PersonalTicketTable tickets={tickets} userId={userId} />
+      <div className="flex-1 min-h-0">
+        <PersonalTicketTable tickets={tickets} userId={userId} />
+      </div>
     </div>
   );
 }

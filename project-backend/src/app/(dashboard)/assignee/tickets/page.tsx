@@ -52,42 +52,53 @@ export default async function AssigneeTicketsPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-center">
+    <div className="flex flex-col h-[calc(100vh-64px)]">
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-white">My Dashboard</h2>
           <p className="text-zinc-400 mt-1">All tickets assigned to me.</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <StatCard label="Total" value={stats.total} />
         <StatCard label="New" value={stats.new} color="blue" />
         <StatCard label="In Progress" value={stats.inProgress} color="amber" />
         <StatCard label="Solved" value={stats.solved} color="emerald" />
-        <StatCard label="Failed" value={stats.failed} color="red" />
+        <StatCard label="Failed" value={stats.failed} color="rose" />
       </div>
 
       {/* ✅ Pass userId from server so the client doesn't need to re-fetch it */}
-      <AssigneeTicketTable initialTickets={tickets} userId={userId} />
+      <div className="flex-1 min-h-0">
+        <AssigneeTicketTable initialTickets={tickets} userId={userId} />
+      </div>
     </div>
   );
 }
 
 function StatCard({ label, value, color = "zinc" }: any) {
-  const colors: any = {
-    zinc: "text-white border-zinc-800 bg-zinc-950/30",
-    blue: "text-blue-400 border-blue-900/50 bg-blue-950/10",
-    amber: "text-amber-400 border-amber-900/50 bg-amber-950/10",
-    emerald: "text-emerald-400 border-emerald-900/50 bg-emerald-950/10",
-    red: "text-red-400 border-red-900/50 bg-red-950/10",
-    purple: "text-purple-400 border-purple-900/50 bg-purple-950/10"
+  const styles: any = {
+    zinc:    { card: "border-zinc-800/60 bg-zinc-900/40", value: "text-white", icon: "text-zinc-500" },
+    blue:    { card: "border-blue-900/40 bg-blue-950/10", value: "text-blue-400", icon: "text-blue-500/60" },
+    amber:   { card: "border-amber-900/40 bg-amber-950/10", value: "text-amber-400", icon: "text-amber-500/60" },
+    emerald: { card: "border-emerald-900/40 bg-emerald-950/10", value: "text-emerald-400", icon: "text-emerald-500/60" },
+    rose:    { card: "border-rose-900/40 bg-rose-950/10", value: "text-rose-400", icon: "text-rose-500/60" },
   };
-
+  const icons: any = {
+    zinc:    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>,
+    blue:    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>,
+    amber:   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+    emerald: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+    rose:    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  };
+  const s = styles[color] || styles.zinc;
   return (
-    <div className={`rounded-lg border p-4 ${colors[color] || colors.zinc}`}>
-      <p className="text-xs text-zinc-500 mb-1">{label}</p>
-      <p className="text-2xl font-semibold">{value}</p>
+    <div className={`rounded-xl border p-4 backdrop-blur-sm ${s.card} transition-colors duration-200 hover:border-zinc-700/60`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className={`${s.icon}`}>{icons[color] || icons.zinc}</span>
+      </div>
+      <div className={`text-2xl font-bold tracking-tight ${s.value}`}>{value}</div>
+      <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium mt-1">{label}</div>
     </div>
   );
 }
