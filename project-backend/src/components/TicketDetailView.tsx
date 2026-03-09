@@ -161,7 +161,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   // SOLVED / FAILED Modals (From origin/private/in)
   const [showSolvedModal, setShowSolvedModal] = useState(false);
   const [showFailedModal, setShowFailedModal] = useState(false);
-  const [resolutionText, setResolutionText] = useState('');
+  const [resolutionSteps, setResolutionSteps] = useState<string[]>(['']);
   const [failureReason, setFailureReason] = useState('');
 
   // Form States
@@ -231,13 +231,9 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
 
   useEffect(() => {
     if (showSolvedModal) {
-      if (ticket.ai_solution?.includes('AI Suggested Next Steps:')) {
-        setResolutionText('');
-      } else {
-      setResolutionText(ticket.ai_solution || '');
-      }
+      setResolutionSteps(['']);
     }
-  }, [showSolvedModal, ticket.ai_solution]);
+  }, [showSolvedModal]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -248,6 +244,22 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
 
   const removeAttachment = (index: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleStepChange = (index: number, value: string) => {
+    setResolutionSteps((prev) => prev.map((s, i) => (i === index ? value : s)));
+  };
+
+  const addStep = () => {
+    if (resolutionSteps.length < 4) {
+      setResolutionSteps((prev) => [...prev, '']);
+    }
+  };
+
+  const removeStep = (index: number) => {
+    if (resolutionSteps.length > 1) {
+      setResolutionSteps((prev) => prev.filter((_, i) => i !== index));
+    }
   };
 
   const uploadAttachmentToBucket = async (file: File) => {
@@ -333,17 +345,21 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   };
 
   const confirmSolved = async () => {
-    if (!resolutionText.trim()) { alert('Please enter final resolution'); return; }
+    const finalResolutionText = resolutionSteps
+      .filter(step => step.trim() !== '')
+      .map((step, index) => `${index + 1}. ${step.trim()}`)
+      .join('\n');
+    if (!finalResolutionText) { alert('Please enter final resolution'); return; }
     setIsUpdating(true);
     try {
       const res = await fetch(`/api/tickets/${ticket.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'SOLVED', ai_solution: resolutionText }),
+        body: JSON.stringify({ status: 'SOLVED', ai_solution: finalResolutionText }),
       });
       if (!res.ok) { const data = await res.json(); throw new Error(data.error || 'Failed to update ticket'); }
       setShowSolvedModal(false);
-      setResolutionText('');
+      setResolutionSteps(['']);
       router.refresh();
     } catch (error: any) { alert(error.message); } finally { setIsUpdating(false); }
   };
@@ -960,15 +976,38 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 p-6 space-y-4">
             <h3 className="text-lg font-bold text-white">Final Resolution</h3>
-            <textarea
-              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-              rows={6}
-              placeholder="Describe the final solution..."
-              value={resolutionText}
-              onChange={(e) => setResolutionText(e.target.value)}
-            />
+            <div className="space-y-2">
+              {resolutionSteps.map((step, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <span className="text-sm text-zinc-400 w-5 shrink-0">{index + 1}.</span>
+                  <input
+                    type="text"
+                    className="flex-1 bg-zinc-900 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    placeholder={`Step ${index + 1}...`}
+                    value={step}
+                    onChange={(e) => handleStepChange(index, e.target.value)}
+                  />
+                  {resolutionSteps.length > 1 && (
+                    <button
+                      onClick={() => removeStep(index)}
+                      className="text-zinc-500 hover:text-red-400 transition-colors px-1"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {resolutionSteps.length < 4 && (
+              <button
+                onClick={addStep}
+                className="text-zinc-400 hover:text-white text-sm transition-colors"
+              >
+                + Add Step
+              </button>
+            )}
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={confirmSolved} disabled={isUpdating || !resolutionText.trim()} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center gap-2 disabled:opacity-50">
+              <button onClick={confirmSolved} disabled={isUpdating || resolutionSteps.every(s => !s.trim())} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center gap-2 disabled:opacity-50">
                 {isUpdating && <span className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full"></span>}
                 Confirm Solved
               </button>
