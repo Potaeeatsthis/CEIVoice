@@ -348,7 +348,7 @@ function LogoutButton() {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch (_) {}
-    window.location.href = '/login';
+    window.location.href = '/';
   }
 
   return (

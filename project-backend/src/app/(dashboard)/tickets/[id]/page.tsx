@@ -106,7 +106,7 @@ export default async function UserTicketDetailPage({
       <div className="p-12 text-center border border-zinc-800 rounded-xl bg-zinc-950/40">
         <p className="text-zinc-400 text-lg font-medium mb-1">Ticket not found</p>
         <p className="text-zinc-600 text-sm mb-6">This ticket may have been removed or is not visible.</p>
-        <Link href="/login" className="text-blue-400 hover:text-blue-300 hover:underline text-sm">
+        <Link href="/" className="text-blue-400 hover:text-blue-300 hover:underline text-sm">
           ← Sign in
         </Link>
       </div>
@@ -114,7 +114,7 @@ export default async function UserTicketDetailPage({
   }
 
   const { ticket, comments, isOwner, isFollowing, currentUser, isGuest, followers } = data;
-  const backHref = isGuest ? '/login' : isOwner ? '/tickets' : '/user/community';
+  const backHref = isGuest ? '/' : isOwner ? '/tickets' : '/user/community';
 
   return (
     <div className="flex flex-col h-full gap-4">
@@ -128,7 +128,7 @@ export default async function UserTicketDetailPage({
             You're viewing this ticket as a guest. Sign in to reply and track updates.
           </div>
           <Link
-            href={`/login?redirect=/tickets/${id}`}
+            href={`/?redirect=/tickets/${id}`}
             className="flex-shrink-0 ml-4 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
           >
             Sign In

@@ -52,7 +52,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <span className="text-xs text-zinc-600">HELP DESK</span>
           </div>
           <a
-            href="/login"
+            href="/"
             className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 transition-colors"
           >
             Sign In

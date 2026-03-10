@@ -20,7 +20,7 @@ export default async function AssigneeReportsPage(props: {
   const userId = cookieStore.get('user_id')?.value;
   const userRole = cookieStore.get('user_role')?.value;
 
-  if (!userId || userRole !== 'ASSIGNEE') redirect('/login');
+  if (!userId || userRole !== 'ASSIGNEE') redirect('/');
 
   // ── Period ──
   const days = Math.max(1, Number(searchParams?.days) || 30);

@@ -45,7 +45,7 @@ export default function ResetPasswordPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update password');
 
-      router.push('/login?message=Password+updated+successfully');
+      router.push('/?message=Password+updated+successfully');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -148,7 +148,7 @@ export default function ResetPasswordPage() {
 
       <p className="text-center text-sm text-zinc-400">
         Remember your password?{' '}
-        <Link href="/login" className="underline underline-offset-4 hover:text-white font-medium">
+        <Link href="/" className="underline underline-offset-4 hover:text-white font-medium">
           Sign in
         </Link>
       </p>

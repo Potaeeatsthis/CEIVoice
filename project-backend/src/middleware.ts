@@ -39,7 +39,7 @@ export async function middleware(request: NextRequest) {
   const hasToken = !!request.cookies.get('token')?.value;
 
   // Auth pages: redirect already-logged-in users
-  if (pathname === '/login' || pathname === '/register') {
+  if (pathname === '/' || pathname === '/login' || pathname === '/register') {
     if (hasToken) {
       const dest =
         userRole === 'ADMIN'
@@ -70,7 +70,7 @@ export async function middleware(request: NextRequest) {
   // /tickets (list page) — must be logged in as USER
   if (pathname === '/tickets' || pathname.startsWith('/tickets/create')) {
     if (!hasToken) {
-      return NextResponse.redirect(new URL('/login', request.url));
+      return NextResponse.redirect(new URL('/', request.url));
     }
     if (userRole === 'ADMIN') {
       return NextResponse.redirect(new URL('/admin/tickets', request.url));
@@ -96,7 +96,7 @@ export async function middleware(request: NextRequest) {
   // Protect /user/* — must be logged in and must be USER role
   if (pathname.startsWith('/user')) {
     if (!hasToken) {
-      return NextResponse.redirect(new URL('/login', request.url));
+      return NextResponse.redirect(new URL('/', request.url));
     }
     if (userRole === 'ADMIN') {
       return NextResponse.redirect(new URL('/admin/tickets', request.url));
@@ -143,6 +143,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/',
+    '/login',
+    '/register',
     '/api/tickets/:path*',
     '/api/users/:path*',
     '/admin/:path*',

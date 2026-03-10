@@ -326,7 +326,7 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
         {isGuest ? (
           <div className="p-4 bg-zinc-900/30 border-t border-zinc-800 flex items-center justify-between gap-4">
             <p className="text-sm text-zinc-500">Sign in to reply to this ticket and receive updates.</p>
-            <Link href={`/login?redirect=/tickets/${ticket.id}`} className="flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors">
+            <Link href={`/?redirect=/tickets/${ticket.id}`} className="flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors">
               Sign In to Reply
             </Link>
           </div>

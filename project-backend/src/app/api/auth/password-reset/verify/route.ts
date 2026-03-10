@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const token = searchParams.get('token');
 
   if (!token) {
-    return NextResponse.redirect(new URL('/login?error=Invalid+link', request.url));
+    return NextResponse.redirect(new URL('/?error=Invalid+link', request.url));
   }
 
   // Verify token exists and has not expired
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     .single();
 
   if (!user) {
-    return NextResponse.redirect(new URL('/login?error=Expired+or+invalid+link', request.url));
+    return NextResponse.redirect(new URL('/?error=Expired+or+invalid+link', request.url));
   }
 
   const response = NextResponse.redirect(
