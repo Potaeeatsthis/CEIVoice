@@ -337,7 +337,7 @@ export default function CreateTicketPage() {
         </div>
 
         {/* ── Right: Info panel ── */}
-        <div className="w-72 flex-shrink-0 flex flex-col gap-4">
+        <div className="w-72 flex-shrink-0 flex flex-col gap-4 hidden md:flex">
 
           {/* What to expect */}
           <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 overflow-hidden">
