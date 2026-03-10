@@ -47,6 +47,7 @@ services:
           - SUPABASE_URL=${SUPABASE_URL}
           - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
           - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+          - RESEND_API_KEY=${RESEND_API_KEY}
     container_name: ceivoice-frontend
     restart: always
     ports:
