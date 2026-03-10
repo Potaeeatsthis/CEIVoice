@@ -11,6 +11,7 @@ test_rabbit.py
 .env
 .env.local
 project-backend/.env
+.env.production
 
 # Node
 node_modules/
