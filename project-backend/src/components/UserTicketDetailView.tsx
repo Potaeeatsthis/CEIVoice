@@ -31,6 +31,7 @@ type Ticket = {
   created_by_user?: { full_name: string; email: string } | null;
   assignee?: { id: string; full_name: string; email: string; role: string } | null;
   ai_solution?: string | null;
+  failure_reason?: string | null; // ← ADDED
 };
 
 type Follower = {
@@ -281,6 +282,43 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
               </div>
             );
           })}
+
+          {/* ── FAILURE REASON bubble ── */}
+          {ticket.status === 'FAILED' && ticket.failure_reason && (
+            <div className="flex gap-3 flex-row">
+              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-red-900/30 text-red-400 border border-red-800/50 flex items-center justify-center text-xs font-bold">
+                {ticket.assignee?.full_name?.charAt(0).toUpperCase() || 'A'}
+              </div>
+              <div className="flex flex-col max-w-[75%] items-start">
+                <div className="flex items-center gap-2 mb-1 px-1">
+                  <span className="text-xs font-medium text-zinc-400">{ticket.assignee?.full_name || 'Assignee'}</span>
+                  <span className="text-[10px] text-red-500 font-bold uppercase tracking-wide">Failure Reason</span>
+                </div>
+                <div className="px-4 py-2.5 bg-red-900/30 border border-red-700/50 text-red-200 rounded-2xl rounded-tl-none text-sm whitespace-pre-wrap">
+                  {ticket.failure_reason}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── RESOLUTION bubble ── */}
+          {ticket.status === 'SOLVED' && ticket.ai_solution && (
+            <div className="flex gap-3 flex-row">
+              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-emerald-900/30 text-emerald-400 border border-emerald-800/50 flex items-center justify-center text-xs font-bold">
+                {ticket.assignee?.full_name?.charAt(0).toUpperCase() || 'A'}
+              </div>
+              <div className="flex flex-col max-w-[75%] items-start">
+                <div className="flex items-center gap-2 mb-1 px-1">
+                  <span className="text-xs font-medium text-zinc-400">{ticket.assignee?.full_name || 'Assignee'}</span>
+                  <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-wide">Final Resolution</span>
+                </div>
+                <div className="px-4 py-2.5 bg-emerald-900/30 border border-emerald-700/50 text-emerald-200 rounded-2xl rounded-tl-none text-sm whitespace-pre-wrap">
+                  {ticket.ai_solution}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div ref={bottomRef} />
         </div>
 
@@ -481,7 +519,7 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
               <svg className="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
-              <span className="text-[10px] uppercase tracking-wider text-emerald-500 font-semibold">AI Suggestion</span>
+              <span className="text-[10px] uppercase tracking-wider text-emerald-500 font-semibold">Resolution Summary</span>
             </div>
             <p className="text-xs text-emerald-200/80 leading-relaxed">{ticket.ai_solution}</p>
           </div>
