@@ -71,7 +71,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         userInitial={user.initial}
         userName={user.name}
       />
-      <main className="flex-1 overflow-hidden bg-black relative flex flex-col">
+      <main className="flex-1 overflow-y-auto bg-black relative flex flex-col">
         <div className="flex-1 min-h-0 max-w-7xl w-full mx-auto p-8 flex flex-col">
           <GlobalNotificationListener userId={user.id} />
           {children}
