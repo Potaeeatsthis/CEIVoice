@@ -46,6 +46,6 @@ export const cookieOptions = {
   httpOnly: true,
   path: '/',
   maxAge: 60 * 60 * 24, // 1 day
-  sameSite: 'strict' as const,
+  sameSite: 'lax' as const,  // 'lax' allows cookies on cross-site GET navigations (e.g. email links)
   secure: process.env.NODE_ENV === 'production',
 };

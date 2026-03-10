@@ -20,9 +20,11 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
 
   const redirectByRole = (role: string) => {
-    if (role === 'ADMIN') router.push('/admin/tickets');
-    else if (role === 'ASSIGNEE') router.push('/assignee/tickets');
-    else router.push('/tickets');
+    const redirect = searchParams.get('redirect');
+    if (redirect) { window.location.href = redirect; return; }
+    if (role === 'ADMIN') window.location.href = '/admin/tickets';
+    else if (role === 'ASSIGNEE') window.location.href = '/assignee/tickets';
+    else window.location.href = '/tickets';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
