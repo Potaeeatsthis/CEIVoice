@@ -28,7 +28,7 @@ services:
       rabbitmq:
         condition: service_healthy
     env_file:
-      - main.env
+      - .env
     environment:
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_USER=${RABBITMQ_USER}
