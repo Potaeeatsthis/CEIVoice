@@ -77,7 +77,7 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
   const cardBase = "bg-zinc-900/30 backdrop-blur-md border border-zinc-800/60 rounded-2xl p-6 shadow-sm";
 
   return (
-    <div className="max-w-6xl mx-auto h-[calc(100vh-64px)] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 relative overflow-hidden">
+    <div className="max-w-6xl mx-auto h-[calc(100vh-64px)] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 relative overflow-y-auto">
       
       {toast && (
         <Toast 

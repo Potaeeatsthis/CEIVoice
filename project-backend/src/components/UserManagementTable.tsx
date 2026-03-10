@@ -115,7 +115,8 @@ export default function UserManagementTable({ initialUsers }: { initialUsers: Us
 
       {/* Main Table */}
       <div className="rounded-md border border-zinc-800 bg-zinc-950/40 overflow-hidden backdrop-blur-sm">
-        <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm min-w-[800px]">
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-900/50 text-zinc-400">
               <th className="px-6 py-3 font-medium">User Details</th>
@@ -179,7 +180,8 @@ export default function UserManagementTable({ initialUsers }: { initialUsers: Us
               </tr>
             )}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
 
       {/* --- Modal (Unchanged) --- */}

@@ -38,8 +38,10 @@ export default async function AdminUsersPage() {
           <div className="text-xs text-zinc-500 uppercase tracking-wider font-medium">Staff Ratio</div>
         </div>
       </div>
-
-      <UserManagementTable initialUsers={users} />
+            <div className="overflow-x-auto">
+        <UserManagementTable initialUsers={users} />
+      </div>
     </div>
   );
 }
+

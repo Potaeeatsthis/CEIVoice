@@ -97,7 +97,7 @@ export default async function AssigneeReportsPage(props: {
 
       {/* ── Header ── */}
       <div className="flex items-end justify-between pb-5 border-b border-zinc-800">
-        <div>
+        <div className="h-full overflow-auto">
           <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-1">Assignee</p>
           <h1 className="text-3xl font-bold text-white tracking-tight">My Performance</h1>
           <p className="text-sm text-zinc-400 mt-1">Personal metrics and workload analytics</p>
@@ -176,7 +176,7 @@ export default async function AssigneeReportsPage(props: {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* ── Status Breakdown ── */}
-        <div className="bg-zinc-950/60 border border-zinc-800 rounded-2xl p-6 flex flex-col h-full">
+        <div className="bg-zinc-950/60 border border-zinc-800 rounded-2xl p-6 flex flex-col h-full overflow-x-auto min-w-0">
             <h2 className="text-base font-bold text-white mb-6">Status Breakdown</h2>
             <div className="space-y-6 flex-1 flex flex-col justify-center pb-2">
               {statusBreakdown.map(({ label, count, color, textColor }) => {

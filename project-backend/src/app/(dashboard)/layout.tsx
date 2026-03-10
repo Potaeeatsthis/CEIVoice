@@ -58,7 +58,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             Sign In
           </a>
         </div>
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-y-auto">
           <div className="h-full max-w-7xl mx-auto px-8 py-6 flex flex-col">
             {children}
           </div>
