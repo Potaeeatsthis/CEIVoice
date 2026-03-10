@@ -29,7 +29,14 @@ type Ticket = {
   deadline: string | null;
   img?: string[];
   created_by_user?: { full_name: string; email: string } | null;
+  assignee?: { id: string; full_name: string; email: string; role: string } | null;
   ai_solution?: string | null;
+};
+
+type Follower = {
+  id: string;
+  full_name: string;
+  email: string;
 };
 
 type Props = {
@@ -39,6 +46,7 @@ type Props = {
   isOwner: boolean;
   isFollowing?: boolean;
   isGuest?: boolean;
+  followers?: Follower[];
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -66,7 +74,6 @@ const PRIORITY_TEXT: Record<string, string> = {
 
 function AttachmentPreview({ url }: { url: string }) {
   const isImage = url.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null;
-
   if (isImage) {
     return (
       <a href={url} target="_blank" rel="noopener noreferrer" className="block mt-2">
@@ -74,7 +81,6 @@ function AttachmentPreview({ url }: { url: string }) {
       </a>
     );
   }
-
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 mt-2 p-2 bg-zinc-900/50 rounded border border-zinc-700 hover:bg-zinc-800 transition-colors w-fit">
       <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -85,7 +91,17 @@ function AttachmentPreview({ url }: { url: string }) {
   );
 }
 
-export default function UserTicketDetailView({ ticket, initialComments, currentUser, isOwner, isFollowing, isGuest = false }: Props) {
+function Avatar({ name, size = 'sm' }: { name: string; size?: 'sm' | 'md' }) {
+  const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  const sizeClass = size === 'md' ? 'h-8 w-8 text-sm' : 'h-6 w-6 text-xs';
+  return (
+    <div className={`${sizeClass} rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-zinc-300 flex-shrink-0`}>
+      {initials}
+    </div>
+  );
+}
+
+export default function UserTicketDetailView({ ticket, initialComments, currentUser, isOwner, isFollowing, isGuest = false, followers = [] }: Props) {
   const bottomRef    = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef  = useRef<HTMLTextAreaElement>(null);
@@ -95,8 +111,19 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
   const [files,     setFiles]     = useState<File[]>([]);
   const [sending,   setSending]   = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [logs, setLogs] = useState<{ id: number; action: string; timestamp: string; users?: { full_name: string } }[]>([]);
 
-  const canComment = !isGuest && (isOwner || isFollowing);
+  useEffect(() => {
+    if (isGuest) return;
+    fetch(`/api/tickets/${ticket.id}/logs`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.data) setLogs(d.data); })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticket.id]);
+
+  const isClosed = ticket.status === 'SOLVED' || ticket.status === 'FAILED' || ticket.status === 'MERGED';
+  const canComment = !isGuest && !isClosed && (isOwner || isFollowing);
 
   useEffect(() => {
     if (isGuest) return;
@@ -104,20 +131,14 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
       if (!ticket.id || !currentUser.id) return;
       try {
         const res = await fetch(`/api/tickets/${ticket.id}/read`, { method: 'POST' });
-        if (res.ok) {
-          setTimeout(() => window.dispatchEvent(new Event('refresh-unread-stats')), 300);
-        }
-      } catch (err) {
-        console.error('Failed to mark ticket as read:', err);
-      }
+        if (res.ok) setTimeout(() => window.dispatchEvent(new Event('refresh-unread-stats')), 300);
+      } catch (err) { console.error('Failed to mark ticket as read:', err); }
     };
     markAsRead();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticket.id, currentUser.id]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [comments]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [comments]);
 
   useEffect(() => {
     const ta = textareaRef.current;
@@ -146,7 +167,7 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
   }, [ticket.id]);
 
   const uploadFile = async (file: File): Promise<string> => {
-    const ext      = file.name.split('.').pop();
+    const ext = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
     const filePath = `ticket-uploads/${fileName}`;
     const { error } = await supabaseBrowser.storage.from('ticket-attachments').upload(filePath, file);
@@ -187,14 +208,15 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
 
   const publicComments = comments.filter((c) => !c.is_internal);
   const priorityLevel = { URGENT: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }[ticket.priority] ?? 1;
+  const closedStatusColor: Record<string, string> = {
+    SOLVED: 'text-emerald-400', FAILED: 'text-red-400', MERGED: 'text-purple-400',
+  };
 
   return (
     <div className="flex gap-6 h-full min-h-0">
 
       {/* ── Left: Chat ── */}
       <div className="flex-1 flex flex-col min-h-0 rounded-xl border border-zinc-800 bg-zinc-950 shadow-sm overflow-hidden">
-
-        {/* Header */}
         <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm z-10">
           <h2 className="text-lg font-semibold text-white truncate">{ticket.title || 'Untitled Ticket'}</h2>
           <div className="flex items-center gap-2 text-xs text-zinc-400 mt-1">
@@ -207,10 +229,7 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
           </div>
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-black/20 min-h-0">
-
-          {/* Original request */}
           <div className={`flex gap-3 ${isOwner ? 'flex-row-reverse' : 'flex-row'}`}>
             <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border ${isOwner ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'}`}>
               {ticket.created_by_user?.full_name?.charAt(0).toUpperCase() || 'U'}
@@ -265,16 +284,24 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
           <div ref={bottomRef} />
         </div>
 
-        {/* Input area — guest sees sign-in prompt, others see message box */}
+        {/* Input area */}
         {isGuest ? (
           <div className="p-4 bg-zinc-900/30 border-t border-zinc-800 flex items-center justify-between gap-4">
             <p className="text-sm text-zinc-500">Sign in to reply to this ticket and receive updates.</p>
-            <Link
-              href={`/login?redirect=/tickets/${ticket.id}`}
-              className="flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
-            >
+            <Link href={`/login?redirect=/tickets/${ticket.id}`} className="flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors">
               Sign In to Reply
             </Link>
+          </div>
+        ) : isClosed ? (
+          <div className="p-4 bg-zinc-900/30 border-t border-zinc-800 flex items-center gap-3">
+            <svg className="w-4 h-4 text-zinc-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-5a7 7 0 100-14 7 7 0 000 14z" />
+            </svg>
+            <p className="text-sm text-zinc-500">
+              This ticket is{' '}
+              <span className={`font-semibold ${closedStatusColor[ticket.status] ?? 'text-zinc-400'}`}>{ticket.status}</span>
+              {' '}— no further replies are allowed.
+            </p>
           </div>
         ) : (
           <div className="p-4 bg-zinc-900/30 border-t border-zinc-800">
@@ -288,7 +315,6 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
                 ))}
               </div>
             )}
-
             <div className="relative flex gap-2 items-end">
               <input ref={fileInputRef} type="file" className="hidden" multiple accept=".pdf,.jpg,.jpeg,.png,.webp"
                 onChange={(e) => { if (e.target.files) setFiles((p) => [...p, ...Array.from(e.target.files!)]); }}
@@ -299,7 +325,6 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                 </svg>
               </button>
-
               <div className="relative flex-1">
                 <textarea ref={textareaRef} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={handleKeyDown}
                   disabled={!canComment}
@@ -320,7 +345,6 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
                 </button>
               </div>
             </div>
-
             <div className="flex justify-between items-center mt-2 pl-[52px]">
               <div className="text-[10px] text-zinc-600">Press <span className="font-mono text-zinc-500">Enter</span> to send</div>
             </div>
@@ -331,6 +355,7 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
       {/* ── Right: Info panel ── */}
       <div className="w-80 flex-shrink-0 space-y-4 overflow-y-auto">
 
+        {/* Status / Priority / Category / Dates */}
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-4">
           <div>
             <span className="block text-[10px] uppercase tracking-wider text-zinc-600 mb-1.5">Status</span>
@@ -338,7 +363,6 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
               {ticket.status.replace('_', ' ')}
             </span>
           </div>
-
           <div>
             <span className="block text-[10px] uppercase tracking-wider text-zinc-600 mb-1.5">Priority</span>
             <div className="flex items-center gap-2.5">
@@ -350,21 +374,18 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
               <span className={`text-xs font-semibold ${PRIORITY_TEXT[ticket.priority]}`}>{ticket.priority}</span>
             </div>
           </div>
-
           {ticket.category && (
             <div>
               <span className="block text-[10px] uppercase tracking-wider text-zinc-600 mb-1.5">Category</span>
               <span className="text-xs text-zinc-300">{ticket.category}</span>
             </div>
           )}
-
           <div>
             <span className="block text-[10px] uppercase tracking-wider text-zinc-600 mb-1.5">Submitted</span>
             <span className="text-xs text-zinc-300">
               {new Date(ticket.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
             </span>
           </div>
-
           {ticket.deadline && (
             <div>
               <span className="block text-[10px] uppercase tracking-wider text-zinc-600 mb-1.5">Deadline</span>
@@ -373,6 +394,58 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
           )}
         </div>
 
+        {/* ── Assignee ── */}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+          <span className="block text-[10px] uppercase tracking-wider text-zinc-600 mb-3">Assignee</span>
+          {ticket.assignee ? (
+            <div className="flex items-center gap-3">
+              <Avatar name={ticket.assignee.full_name} size="md" />
+              <div className="min-w-0">
+                <p className="text-sm text-zinc-200 font-medium truncate">{ticket.assignee.full_name}</p>
+                <p className="text-[10px] text-zinc-500 truncate">{ticket.assignee.email}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-zinc-600">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <span className="text-xs">Unassigned</span>
+            </div>
+          )}
+        </div>
+
+        {/* ── Followers ── */}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] uppercase tracking-wider text-zinc-600">Followers</span>
+            {followers.length > 0 && (
+              <span className="text-[10px] text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded-full">{followers.length}</span>
+            )}
+          </div>
+          {followers.length > 0 ? (
+            <div className="space-y-2.5">
+              {followers.map((f) => (
+                <div key={f.id} className="flex items-center gap-2.5">
+                  <Avatar name={f.full_name} size="sm" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-zinc-300 truncate">{f.full_name}</p>
+                    <p className="text-[10px] text-zinc-600 truncate">{f.email}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-zinc-600">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              <span className="text-xs">No followers yet</span>
+            </div>
+          )}
+        </div>
+
+        {/* Description */}
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
           <span className="block text-[10px] uppercase tracking-wider text-zinc-600 mb-2">Description</span>
           <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap break-words">{ticket.description}</p>
@@ -414,6 +487,30 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
           </div>
         )}
 
+        {/* ── Activity Log ── */}
+        {!isGuest && logs.length > 0 && (
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+            <span className="block text-[10px] uppercase tracking-wider text-zinc-600 mb-3">Activity</span>
+            <div className="space-y-3">
+              {logs.map((log) => (
+                <div key={log.id} className="flex gap-2.5">
+                  <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-zinc-600 flex-shrink-0 mt-1.5" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-zinc-300">{log.action}</p>
+                    <p className="text-[10px] text-zinc-600 mt-0.5">
+                      {log.users?.full_name && <span>{log.users.full_name} · </span>}
+                      {new Date(log.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {' '}
+                      {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Quick Actions */}
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
           <span className="block text-[10px] uppercase tracking-wider text-zinc-600 mb-2">Quick Actions</span>
           <div className="space-y-1">
@@ -433,23 +530,22 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
             </button>
           </div>
         </div>
+
       </div>
     </div>
   );
 }
 
 function DeadlineDisplay({ deadline }: { deadline: string }) {
-  const now      = new Date(); now.setHours(0,0,0,0);
-  const due      = new Date(deadline); due.setHours(0,0,0,0);
+  const now = new Date(); now.setHours(0,0,0,0);
+  const due = new Date(deadline); due.setHours(0,0,0,0);
   const diffDays = Math.round((due.getTime() - now.getTime()) / 86400000);
-
   const label = diffDays < 0
     ? <span className="text-red-400 font-medium">Overdue</span>
     : diffDays === 0 ? <span className="text-amber-400 font-medium">Due today</span>
     : diffDays === 1 ? <span className="text-amber-400 font-medium">Due tomorrow</span>
     : diffDays < 7  ? <span className="text-amber-400 font-medium">{diffDays} days left</span>
     : <span className="text-zinc-300">{diffDays} days left</span>;
-
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-zinc-300">

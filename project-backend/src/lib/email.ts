@@ -15,8 +15,6 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 type TriggerType = 'SOLVED' | 'FAILED' | 'MERGED' | 'DEADLINE' | 'ASSIGNED';
 
-// ── Role-aware URL helpers ────────────────────────────────────────────────────
-
 function ticketUrlForRole(role: string, ticketId: string | number): string {
   if (role === 'ADMIN')    return `${APP_URL}/admin/tickets/${ticketId}`;
   if (role === 'ASSIGNEE') return `${APP_URL}/assignee/tickets/${ticketId}`;
@@ -28,8 +26,6 @@ function dashboardUrlForRole(role: string): string {
   if (role === 'ASSIGNEE') return `${APP_URL}/assignee/tickets`;
   return `${APP_URL}/tickets`;
 }
-
-// ── Ticket lifecycle notifications ───────────────────────────────────────────
 
 export async function sendTicketNotification(
   trigger: TriggerType,
@@ -45,7 +41,6 @@ export async function sendTicketNotification(
     actorName,
   };
 
-  // A) SOLVED, FAILED, MERGED, DEADLINE → ticket creator
   if (['SOLVED', 'FAILED', 'MERGED', 'DEADLINE'].includes(trigger)) {
     const creator = ticket.created_by_user;
     if (creator?.email) {
@@ -71,9 +66,8 @@ export async function sendTicketNotification(
     }
   }
 
-  // B) ASSIGNED → notify creator + staff
   if (trigger === 'ASSIGNED') {
-    const creator  = ticket.created_by_user;
+    const creator   = ticket.created_by_user;
     const staffUser = ticket.assigned_to_user;
 
     if (creator?.email && staffUser) {
@@ -93,7 +87,6 @@ export async function sendTicketNotification(
       );
     }
 
-    // ✅ Use staff member's actual role for the link — not hardcoded /admin/
     if (staffUser?.email) {
       emailPromises.push(
         resend.emails.send({
@@ -114,8 +107,6 @@ export async function sendTicketNotification(
   await Promise.allSettled(emailPromises);
 }
 
-// ── Deadline reminder (assigned staff) ───────────────────────────────────────
-
 export async function sendDeadlineReminder(ticket: any) {
   if (!process.env.RESEND_API_KEY) return;
 
@@ -127,19 +118,15 @@ export async function sendDeadlineReminder(ticket: any) {
     to: staffUser.email,
     subject: `Reminder: Ticket #${ticket.id} Due Tomorrow`,
     react: NotificationEmail({
-      userName:     staffUser.full_name || 'Team Member',
-      ticketTitle:  ticket.title || 'Untitled Ticket',
-      deadline:     ticket.deadline
+      userName:    staffUser.full_name || 'Team Member',
+      ticketTitle: ticket.title || 'Untitled Ticket',
+      deadline:    ticket.deadline
         ? new Date(ticket.deadline).toLocaleDateString('en-GB')
         : 'N/A',
       ticketUrl: ticketUrlForRole(staffUser.role || 'ASSIGNEE', ticket.id),
     }),
   });
 }
-
-// ── New message notification ──────────────────────────────────────────────────
-// NOTE: The 10-minute throttle is enforced in the caller (comments route).
-// Do NOT add throttle logic here.
 
 export async function sendNewMessageNotification(
   userEmail: string,
@@ -148,7 +135,7 @@ export async function sendNewMessageNotification(
   senderName: string,
   messageContent: string,
   recipientName: string = 'User',
-  recipientRole: string = 'USER'    // ✅ caller passes role for correct URL
+  recipientRole: string = 'USER'
 ) {
   if (!process.env.RESEND_API_KEY) return;
 
@@ -167,8 +154,6 @@ export async function sendNewMessageNotification(
   });
 }
 
-// ── Role updated notification ─────────────────────────────────────────────────
-
 export async function sendRoleUpdatedEmail(
   userEmail: string,
   userName: string,
@@ -183,12 +168,10 @@ export async function sendRoleUpdatedEmail(
     react: RoleUpdatedEmail({
       userName,
       newRole,
-      dashboardUrl: dashboardUrlForRole(newRole),  // ✅ role-aware, uses APP_URL
+      dashboardUrl: dashboardUrlForRole(newRole),
     }),
   });
 }
-
-// ── Welcome email ─────────────────────────────────────────────────────────────
 
 export async function sendWelcomeEmail(
   userEmail: string,
@@ -204,8 +187,6 @@ export async function sendWelcomeEmail(
     react: WelcomeEmail({ fullName, role }),
   });
 }
-
-// ── Password reset email ──────────────────────────────────────────────────────
 
 export async function sendPasswordResetEmail(
   userEmail: string,
@@ -231,8 +212,6 @@ export async function sendPasswordResetEmail(
   return data;
 }
 
-// ── Password changed notification ─────────────────────────────────────────────
-
 export async function sendPasswordChangedEmail(
   userEmail: string,
   name: string
@@ -247,7 +226,7 @@ export async function sendPasswordChangedEmail(
   });
 }
 
-// ── Ticket created confirmation ───────────────────────────────────────────────
+// ── Ticket created / activated confirmation ───────────────────────────────────
 
 export async function sendTicketCreatedEmail(
   userEmail: string,
@@ -255,7 +234,8 @@ export async function sendTicketCreatedEmail(
   ticketId: string | number,
   ticketTitle: string,
   ticketDescription: string,
-  userRole: string = 'USER'
+  userRole: string = 'USER',
+  ticketPriority?: string,          // ← added
 ) {
   if (!process.env.RESEND_API_KEY) return;
 
@@ -264,12 +244,13 @@ export async function sendTicketCreatedEmail(
   await resend.emails.send({
     from: 'CEiVoice Support <support@ceivoice.com>',
     to: userEmail,
-    subject: `[Ticket #${ticketId}] We received your request`,
+    subject: `[Ticket #${ticketId}] Your ticket is now active`,
     react: TicketCreatedEmail({
       recipientName,
       ticketId,
       ticketTitle,
       ticketDescription,
+      ticketPriority,               // ← passed through
       link,
     }),
   });

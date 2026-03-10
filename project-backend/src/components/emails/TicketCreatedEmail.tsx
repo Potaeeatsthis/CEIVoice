@@ -16,7 +16,8 @@ type TicketCreatedEmailProps = {
   recipientName: string;
   ticketId: string | number;
   ticketTitle: string;
-  ticketDescription: string;
+  ticketDescription: string; // ← fixed typo (was: ticketDescaription)
+  ticketPriority?: string;
   link: string;
 };
 
@@ -25,15 +26,15 @@ export default function TicketCreatedEmail({
   ticketId,
   ticketTitle,
   ticketDescription,
+  ticketPriority,
   link,
 }: TicketCreatedEmailProps) {
-  const preview = `Your ticket #${ticketId} has been received — we're on it!`;
+  const preview = `Your ticket #${ticketId} has been activated — status is now NEW`;
 
-  // Truncate description to 200 chars for the email preview
   const shortDescription =
-    ticketDescription.length > 200
+    ticketDescription && ticketDescription.length > 200
       ? ticketDescription.slice(0, 200).trimEnd() + '…'
-      : ticketDescription;
+      : ticketDescription || '';
 
   return (
     <Html>
@@ -49,19 +50,29 @@ export default function TicketCreatedEmail({
 
           {/* Body */}
           <Section style={body}>
-            <Text style={badge}>Ticket Received</Text>
+            <Text style={badge}>Ticket Activated</Text>
 
-            <Heading style={title}>We've got your request!</Heading>
+            <Heading style={title}>Your ticket is now active!</Heading>
 
             <Text style={text}>Hello {recipientName},</Text>
 
             <Text style={text}>
-              Thank you for reaching out. Your support ticket has been
-              successfully submitted and our team will review it shortly.
+              Hello {recipientName}, your ticket has been reviewed and activated by our support team.
+              Its status has been updated from <strong>DRAFT</strong> to <strong style={{ color: '#3b82f6' }}>NEW</strong> and is now in our queue.
             </Text>
 
             {/* Ticket details box */}
             <Section style={detailsBox}>
+              <Text style={detailLabel}>STATUS UPDATE</Text>
+              <Text style={detailValue}>
+                <span style={{ color: '#a1a1aa' }}>DRAFT</span>
+                {'  →  '}
+                <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>NEW</span>
+              </Text>
+
+              <Text style={detailLabel}>PRIORITY</Text>
+              <Text style={detailValue}>{ticketPriority || 'MEDIUM'}</Text>
+
               <Text style={detailLabel}>TICKET ID</Text>
               <Text style={detailValue}>#{ticketId}</Text>
 

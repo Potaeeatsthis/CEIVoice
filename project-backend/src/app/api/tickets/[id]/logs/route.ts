@@ -1,21 +1,34 @@
 // src/app/api/tickets/[id]/logs/route.ts
+
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { cookies } from 'next/headers';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const userRole = request.headers.get('x-user-role');
+  const cookieStore = await cookies();
+  const userId = cookieStore.get('user_id')?.value;
+  const userRole = cookieStore.get('user_role')?.value;
 
-  // --- ROLE RESTRICTION ---
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // If USER role, verify they own the ticket before showing logs
   if (userRole === 'USER') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-  // ------------------------
+    const { data: ticket } = await supabaseAdmin
+      .from('tickets')
+      .select('created_by')
+      .eq('id', id)
+      .single();
 
-  const { data, error } = await supabase
+    if (!ticket || ticket.created_by !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  }
+
+  const { data, error } = await supabaseAdmin
     .from('audit_logs')
     .select('*, users(full_name)')
     .eq('ticket_id', id)

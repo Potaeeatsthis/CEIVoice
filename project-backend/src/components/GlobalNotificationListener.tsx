@@ -11,8 +11,6 @@ export default function GlobalNotificationListener({ userId }: { userId: string 
   const router = useRouter();
   const pathname = usePathname();
 
-  // Use refs so the realtime callback always has the latest values
-  // WITHOUT tearing down and recreating the channel on every navigation
   const pathnameRef = useRef(pathname);
   const routerRef = useRef(router);
 
@@ -37,11 +35,13 @@ export default function GlobalNotificationListener({ userId }: { userId: string 
           // 1. Ignore my own messages
           if (newComment.user_id === userId) return;
 
-          // 2. Dispatch event to update Sidebar/Table badges
+          // 2. Ignore internal messages — these are only for admins/assignees
+          if (newComment.is_internal) return;
+
+          // 3. Dispatch event to update Sidebar/Table badges
           window.dispatchEvent(new CustomEvent('refresh-unread-stats'));
 
-          // 3. Trigger Sonner Toast
-          // Read the LATEST pathname from the ref (not the stale closure)
+          // 4. Trigger Sonner Toast
           const currentPath = pathnameRef.current;
           const isUserAdmin = currentPath?.startsWith('/admin');
           const isUserAssignee = currentPath?.startsWith('/assignee');
@@ -67,7 +67,7 @@ export default function GlobalNotificationListener({ userId }: { userId: string 
     return () => {
       supabaseBrowser.removeChannel(channel);
     };
-  }, [userId]); // Only depend on userId — channel stays stable across navigations
+  }, [userId]);
 
   return null;
 }

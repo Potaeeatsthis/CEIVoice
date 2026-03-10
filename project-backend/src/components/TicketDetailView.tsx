@@ -158,7 +158,7 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   const [ticketToUnlink, setTicketToUnlink] = useState<string | null>(null);
   const [isUnlinking, setIsUnlinking] = useState(false);
 
-  // SOLVED / FAILED Modals (From origin/private/in)
+  // SOLVED / FAILED Modals
   const [showSolvedModal, setShowSolvedModal] = useState(false);
   const [showFailedModal, setShowFailedModal] = useState(false);
   const [resolutionSteps, setResolutionSteps] = useState<string[]>(['']);
@@ -183,9 +183,17 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
   const isStaff = currentUser.role === 'ADMIN' || currentUser.role === 'ASSIGNEE';
   const isAdmin = currentUser.role === 'ADMIN';
 
+  // ── Ticket is closed if SOLVED, FAILED, or MERGED ──
+  const isClosed = ticket.status === 'SOLVED' || ticket.status === 'FAILED' || ticket.status === 'MERGED';
   const isLocked = ticket.status === 'SOLVED' || (ticket.status === 'FAILED' && !!ticket.failure_reason);
 
   const isAssignee = ticket.assigned_to === currentUser.id;
+
+  const closedStatusColor: Record<string, string> = {
+    SOLVED: 'text-emerald-400',
+    FAILED: 'text-red-400',
+    MERGED: 'text-purple-400',
+  };
 
   useEffect(() => {
     const markAsRead = async () => {
@@ -525,83 +533,99 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
           <div ref={bottomRef} />
         </div>
 
-        {/* Input Area */}
-        <div className="p-4 bg-zinc-900/30 border-t border-zinc-800">
-          {attachments.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-2">
-              {attachments.map((file, idx) => (
-                <div key={idx} className="flex items-center gap-2 bg-zinc-800 px-3 py-1 rounded-full text-xs text-zinc-300 border border-zinc-700 animate-in zoom-in duration-200">
-                  <span className="truncate max-w-[150px]">{file.name}</span>
-                  <button onClick={() => removeAttachment(idx)} className="text-zinc-500 hover:text-white">✕</button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <form onSubmit={handleSendComment} className="relative flex gap-2 items-end">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              className="hidden"
-              accept=".pdf,.jpg,.jpeg,.png"
-              multiple
-            />
-
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="p-3 bg-zinc-900 border border-zinc-700 rounded-xl text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors h-[46px]"
-              title="Attach file"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-              </svg>
-            </button>
-
-            <div className="relative flex-1">
-              <textarea
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-xl pl-4 pr-12 py-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-500/50 focus:border-zinc-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
-                rows={1}
-                style={{ minHeight: '46px' }}
-                placeholder="Type your message..."
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                disabled={isLocked}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendComment(e);
-                  }
-                }}
-              />
-              <button
-                type="submit"
-                disabled={isSending || (!commentText.trim() && attachments.length === 0) || isLocked}
-                className="absolute right-2 bottom-2 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-              >
-                {isSending || uploadingFile ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-                  </svg>
-                )}
-              </button>
-            </div>
-          </form>
-
-          <div className="flex justify-between items-center mt-2 pl-[52px]">
-            <div className="text-[10px] text-zinc-600">Press <span className="font-mono text-zinc-500">Enter</span> to send</div>
-            {isStaff && (
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <div className={`w-3 h-3 rounded-full border ${isInternal ? 'bg-amber-500 border-amber-500' : 'border-zinc-600'}`} />
-                <span className={`text-xs font-medium transition-colors ${isInternal ? 'text-amber-400' : 'text-zinc-500'}`}>Internal Note</span>
-                <input type="checkbox" className="hidden" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)} />
-              </label>
-            )}
+        {/* ── Input Area ── */}
+        {isClosed ? (
+          /* Closed ticket — no input */
+          <div className="p-4 bg-zinc-900/30 border-t border-zinc-800 flex items-center gap-3">
+            <svg className="w-4 h-4 text-zinc-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-5a7 7 0 100-14 7 7 0 000 14z" />
+            </svg>
+            <p className="text-sm text-zinc-500">
+              This ticket is{' '}
+              <span className={`font-semibold ${closedStatusColor[ticket.status] ?? 'text-zinc-400'}`}>
+                {ticket.status}
+              </span>{' '}
+              — no further replies are allowed.
+            </p>
           </div>
-        </div>
+        ) : (
+          /* Normal input */
+          <div className="p-4 bg-zinc-900/30 border-t border-zinc-800">
+            {attachments.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {attachments.map((file, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-zinc-800 px-3 py-1 rounded-full text-xs text-zinc-300 border border-zinc-700 animate-in zoom-in duration-200">
+                    <span className="truncate max-w-[150px]">{file.name}</span>
+                    <button onClick={() => removeAttachment(idx)} className="text-zinc-500 hover:text-white">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <form onSubmit={handleSendComment} className="relative flex gap-2 items-end">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                className="hidden"
+                accept=".pdf,.jpg,.jpeg,.png"
+                multiple
+              />
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-3 bg-zinc-900 border border-zinc-700 rounded-xl text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors h-[46px]"
+                title="Attach file"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              </button>
+
+              <div className="relative flex-1">
+                <textarea
+                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl pl-4 pr-12 py-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-500/50 focus:border-zinc-500 resize-none"
+                  rows={1}
+                  style={{ minHeight: '46px' }}
+                  placeholder="Type your message..."
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendComment(e);
+                    }
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={isSending || (!commentText.trim() && attachments.length === 0)}
+                  className="absolute right-2 bottom-2 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                >
+                  {isSending || uploadingFile ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            <div className="flex justify-between items-center mt-2 pl-[52px]">
+              <div className="text-[10px] text-zinc-600">Press <span className="font-mono text-zinc-500">Enter</span> to send</div>
+              {isStaff && (
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <div className={`w-3 h-3 rounded-full border ${isInternal ? 'bg-amber-500 border-amber-500' : 'border-zinc-600'}`} />
+                  <span className={`text-xs font-medium transition-colors ${isInternal ? 'text-amber-400' : 'text-zinc-500'}`}>Internal Note</span>
+                  <input type="checkbox" className="hidden" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)} />
+                </label>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* RIGHT COLUMN */}
@@ -882,12 +906,12 @@ export default function TicketDetailView({ ticket, comments, currentUser, allUse
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                       d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  {new Date(ticket.deadline).toLocaleDateString('en-GB', { 
+                  {new Date(ticket.deadline ?? ticket.created_at).toLocaleDateString('en-GB', { 
                     day: '2-digit', 
                     month: 'short', 
                     year: 'numeric',
                   })}
-                  </div>
+                </div>
               </div>
 
               <div>

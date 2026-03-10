@@ -45,23 +45,39 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
   const handleAction = async (action: 'SAVE' | 'SUBMIT') => {
     setLoading(true);
     try {
-      const payload = {
-        ...formData,
-        status: action === 'SUBMIT' ? 'NEW' : 'DRAFT',
-        deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
-      };
-
-      const res = await fetch(`/api/tickets/${ticket.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error('Failed to save draft');
-
       if (action === 'SUBMIT') {
+        // Step 1: Save latest edits first
+        await fetch(`/api/admin/drafts/${ticket.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...formData,
+            deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
+          }),
+        });
+
+        // Step 2: Publish — triggers email notification to user
+        const res = await fetch(`/api/admin/drafts/${ticket.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'PUBLISH' }),
+        });
+
+        if (!res.ok) throw new Error('Failed to publish ticket');
         router.push('/admin/tickets');
+
       } else {
+        // SAVE only — update fields, stay on DRAFT
+        const res = await fetch(`/api/admin/drafts/${ticket.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...formData,
+            deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
+          }),
+        });
+
+        if (!res.ok) throw new Error('Failed to save draft');
         router.refresh();
         setToast({ msg: 'Draft changes saved successfully.', type: 'success' });
       }

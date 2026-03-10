@@ -10,7 +10,6 @@ type UserProfile = {
   id: string;
   email: string;
   full_name: string | null;
-  display_name: string | null;
   role: string;
   avatar_url: string | null;
 };
@@ -38,7 +37,6 @@ export default function ProfileModal({ isOpen, onClose, userId, userName, userRo
 
   // Profile fields
   const [fullName, setFullName] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
 
   // Security fields
@@ -57,7 +55,6 @@ export default function ProfileModal({ isOpen, onClose, userId, userName, userRo
       const data: UserProfile = await res.json();
       setProfile(data);
       setFullName(data.full_name || '');
-      setDisplayName(data.display_name || '');
       setEmail(data.email || '');
       setAvatarPreview(data.avatar_url || null);
     } catch {
@@ -110,7 +107,6 @@ export default function ProfileModal({ isOpen, onClose, userId, userName, userRo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           full_name: fullName,
-          display_name: displayName || null,
           avatar_url: avatarPreview,
         }),
       });
@@ -119,14 +115,12 @@ export default function ProfileModal({ isOpen, onClose, userId, userName, userRo
       if (!res.ok) throw new Error(data.error || 'Update failed');
 
       setProfile(data.user);
-      
-      // Notify parent to immediately update the UI
-      const updatedName = data.user.full_name || data.user.display_name || userName;
+
+      const updatedName = data.user.full_name || userName;
       onProfileUpdate?.(updatedName, data.user.avatar_url);
-      
-      // Refresh Next.js server components seamlessly
+
       router.refresh();
-      
+
       toast.success('Profile updated successfully');
     } catch (err: any) {
       toast.error(err.message || 'Failed to update profile');
@@ -311,14 +305,6 @@ export default function ProfileModal({ isOpen, onClose, userId, userName, userRo
                     onChange={setFullName}
                     placeholder="Your full name"
                     required
-                  />
-
-                  {/* Display name */}
-                  <Field
-                    label="Display Name"
-                    value={displayName}
-                    onChange={setDisplayName}
-                    placeholder="How you appear in the app (optional)"
                   />
 
                   {/* Email */}

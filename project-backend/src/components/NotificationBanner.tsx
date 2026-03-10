@@ -1,3 +1,4 @@
+// src/components/NotificationBanner.tsx // 
 'use client';
 
 import { useEffect, useState } from 'react';

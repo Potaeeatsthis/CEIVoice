@@ -23,20 +23,30 @@ async function getData(ticketId: string) {
 
   const isGuest = !userId;
 
-  // Fetch ticket publicly (no user filter for guests)
+  // Fetch ticket with assignee info
   const { data: ticket, error } = await supabaseAdmin
     .from('tickets')
-    .select(`*, created_by_user:users!tickets_created_by_fkey (full_name, email)`)
+    .select(`
+      *,
+      created_by_user:users!tickets_created_by_fkey (full_name, email),
+      assignee:users!tickets_assigned_to_fkey (id, full_name, email, role)
+    `)
     .eq('id', ticketId)
     .single();
 
   if (error || !ticket) return null;
 
-  // Logged-in non-owners cannot see DRAFT tickets
   const isOwner = userId ? ticket.created_by === userId : false;
   if (ticket.status === 'DRAFT' && !isGuest && !isOwner) return null;
 
-  // For guests — return ticket with no comments/user
+  // Fetch followers for this ticket
+  const { data: followersData } = await supabaseAdmin
+    .from('ticket_followers')
+    .select('user_id, user:users(id, full_name, email)')
+    .eq('ticket_id', ticketId);
+
+  const followers = (followersData || []).map((f: any) => f.user).filter(Boolean);
+
   if (isGuest) {
     return {
       isGuest: true,
@@ -45,10 +55,10 @@ async function getData(ticketId: string) {
       isOwner: false,
       isFollowing: false,
       currentUser: { id: '', name: 'Guest' },
+      followers,
     };
   }
 
-  // Logged-in user flow
   const { data: comments } = await supabaseAdmin
     .from('comments')
     .select('*, user:users(full_name)')
@@ -79,6 +89,7 @@ async function getData(ticketId: string) {
       id:   userId!,
       name: currentUserRecord?.full_name || 'You',
     },
+    followers,
   };
 }
 
@@ -102,7 +113,7 @@ export default async function UserTicketDetailPage({
     );
   }
 
-  const { ticket, comments, isOwner, isFollowing, currentUser, isGuest } = data;
+  const { ticket, comments, isOwner, isFollowing, currentUser, isGuest, followers } = data;
   const backHref = isGuest ? '/login' : isOwner ? '/tickets' : '/user/community';
 
   return (
@@ -160,6 +171,7 @@ export default async function UserTicketDetailPage({
           isOwner={isOwner}
           isFollowing={isFollowing}
           isGuest={isGuest}
+          followers={followers}
         />
       </div>
     </div>
