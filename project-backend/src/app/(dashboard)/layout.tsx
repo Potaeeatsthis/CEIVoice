@@ -6,6 +6,7 @@ import { cookies } from 'next/headers';
 import { verifyJWT } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 import Sidebar from '@/components/Sidebar';
+import SidebarToggleMobile from '@/components/SidebarToggleMobile';
 import GlobalNotificationListener from '@/components/GlobalNotificationListener';
 
 async function getUser() {
@@ -34,6 +35,10 @@ async function getUser() {
 }
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+    // State for sidebar toggle (client-only)
+    // Note: This file is async/server, so use a client component for the toggle
+    // Insert a client-only SidebarToggle component for mobile
+    // ...existing code...
   const user = await getUser();
 
   // Guest layout — no sidebar, fixed height, no scroll
@@ -62,10 +67,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
     );
   }
 
-  // Authenticated layout — full sidebar
+  // Authenticated layout — sidebar hidden on small screens
   return (
     <div className="flex h-screen bg-black text-zinc-100 font-sans selection:bg-purple-500/30 selection:text-purple-200">
-      <Sidebar
+      {/* Sidebar: hidden on small screens, visible on md+ */}
+      <div className="hidden md:block h-full">
+        <Sidebar
+          userId={user.id}
+          userRole={user.role}
+          userInitial={user.initial}
+          userName={user.name}
+        />
+      </div>
+      {/* Mobile sidebar toggle button (top right) */}
+      <SidebarToggleMobile
         userId={user.id}
         userRole={user.role}
         userInitial={user.initial}
