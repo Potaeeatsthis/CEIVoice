@@ -17,19 +17,25 @@ export default function UserManagementTable({ initialUsers }: { initialUsers: Us
   const router = useRouter();
   const [users, setUsers] = useState(initialUsers);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  
+  // -- Filter States --
   const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | 'USER' | 'ASSIGNEE' | 'ADMIN'>('ALL');
   
   // -- Modal State --
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [tagInput, setTagInput] = useState('');
 
-  // Filter users based on search
-  const filteredUsers = users.filter(u => 
-    u.email.toLowerCase().includes(search.toLowerCase()) || 
-    u.full_name.toLowerCase().includes(search.toLowerCase())
-  );
+  // Combined Filter Logic
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = u.email.toLowerCase().includes(search.toLowerCase()) || 
+                          u.full_name.toLowerCase().includes(search.toLowerCase());
+    const matchesRole = roleFilter === 'ALL' || u.role === roleFilter;
 
-  // 1. Handle Role Change (Same as before)
+    return matchesSearch && matchesRole;
+  });
+
+  // 1. Handle Role Change
   const handleRoleChange = async (userId: string, newRole: string) => {
     setLoadingId(userId);
     try {
@@ -49,20 +55,19 @@ export default function UserManagementTable({ initialUsers }: { initialUsers: Us
     }
   };
 
-  // 2. Open Modal instead of Prompt
+  // 2. Open Modal
   const openScopeModal = (user: User) => {
     setEditingUser(user);
     setTagInput(user.special_tags?.join(', ') || '');
   };
 
-  // 3. Save Tags (Triggered from Modal)
+  // 3. Save Tags
   const saveTags = async () => {
     if (!editingUser) return;
 
     const newTags = tagInput.split(',').map(t => t.trim()).filter(t => t.length > 0);
     setLoadingId(editingUser.id);
     
-    // Close modal immediately for better UX
     const userToUpdate = editingUser;
     setEditingUser(null); 
 
@@ -86,14 +91,27 @@ export default function UserManagementTable({ initialUsers }: { initialUsers: Us
 
   return (
     <div className="space-y-4">
-      {/* Search Bar */}
-      <input
-        type="text"
-        placeholder="Search by name or email..."
-        className="w-full max-w-sm px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md text-white focus:outline-none focus:border-blue-500 transition-colors placeholder:text-zinc-600"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <input
+          type="text"
+          placeholder="Search by name or email..."
+          className="flex-1 max-w-sm px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md text-white focus:outline-none focus:border-blue-500 transition-colors placeholder:text-zinc-600"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        
+        <select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value as any)}
+          className="px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md text-zinc-300 text-sm focus:outline-none focus:border-blue-500 cursor-pointer"
+        >
+          <option value="ALL">All Roles</option>
+          <option value="ADMIN">Admin</option>
+          <option value="ASSIGNEE">Assignee</option>
+          <option value="USER">User</option>
+        </select>
+      </div>
 
       {/* Main Table */}
       <div className="rounded-md border border-zinc-800 bg-zinc-950/40 overflow-hidden backdrop-blur-sm">
@@ -107,56 +125,64 @@ export default function UserManagementTable({ initialUsers }: { initialUsers: Us
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800">
-            {filteredUsers.map((user) => (
-              <tr key={user.id} className="group hover:bg-zinc-900/30 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="text-white font-medium">{user.full_name}</div>
-                  <div className="text-zinc-500 text-xs font-mono mt-0.5">{user.email}</div>
-                </td>
-                <td className="px-6 py-4">
-                  <select
-                    value={user.role}
-                    disabled={loadingId === user.id}
-                    onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                    className={`bg-transparent border border-zinc-800 rounded px-2 py-1 text-xs font-medium cursor-pointer focus:ring-2 focus:ring-blue-500/50 outline-none transition-all
-                      ${user.role === 'ADMIN' ? 'text-red-400 border-red-900/30 bg-red-950/10' : 
-                        user.role === 'ASSIGNEE' ? 'text-amber-400 border-amber-900/30 bg-amber-950/10' : 
-                        'text-zinc-400'}`}
-                  >
-                    <option value="USER" className="bg-zinc-900 text-zinc-400">User</option>
-                    <option value="ASSIGNEE" className="bg-zinc-900 text-amber-400">Assignee</option>
-                    <option value="ADMIN" className="bg-zinc-900 text-red-400">Admin</option>
-                  </select>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex flex-wrap gap-1.5">
-                    {user.special_tags && user.special_tags.length > 0 ? (
-                      user.special_tags.map(tag => (
-                        <span key={tag} className="px-2 py-0.5 rounded text-[10px] font-medium bg-blue-950/40 text-blue-300 border border-blue-900/50">
-                          {tag}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-zinc-600 text-xs italic">--</span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <button
-                    onClick={() => openScopeModal(user)}
-                    disabled={loadingId === user.id}
-                    className="text-zinc-500 hover:text-white text-xs underline decoration-zinc-700 hover:decoration-white underline-offset-2 transition-all"
-                  >
-                    Edit Scope
-                  </button>
+            {filteredUsers.length > 0 ? (
+              filteredUsers.map((user) => (
+                <tr key={user.id} className="group hover:bg-zinc-900/30 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="text-white font-medium">{user.full_name}</div>
+                    <div className="text-zinc-500 text-xs font-mono mt-0.5">{user.email}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <select
+                      value={user.role}
+                      disabled={loadingId === user.id}
+                      onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                      className={`bg-transparent border border-zinc-800 rounded px-2 py-1 text-xs font-medium cursor-pointer focus:ring-2 focus:ring-blue-500/50 outline-none transition-all
+                        ${user.role === 'ADMIN' ? 'text-red-400 border-red-900/30 bg-red-950/10' : 
+                          user.role === 'ASSIGNEE' ? 'text-amber-400 border-amber-900/30 bg-amber-950/10' : 
+                          'text-zinc-400'}`}
+                    >
+                      <option value="USER" className="bg-zinc-900 text-zinc-400">User</option>
+                      <option value="ASSIGNEE" className="bg-zinc-900 text-amber-400">Assignee</option>
+                      <option value="ADMIN" className="bg-zinc-900 text-red-400">Admin</option>
+                    </select>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap gap-1.5">
+                      {user.special_tags && user.special_tags.length > 0 ? (
+                        user.special_tags.map(tag => (
+                          <span key={tag} className="px-2 py-0.5 rounded text-[10px] font-medium bg-blue-950/40 text-blue-300 border border-blue-900/50">
+                            {tag}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-zinc-600 text-xs italic">--</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      onClick={() => openScopeModal(user)}
+                      disabled={loadingId === user.id}
+                      className="text-zinc-500 hover:text-white text-xs underline decoration-zinc-700 hover:decoration-white underline-offset-2 transition-all"
+                    >
+                      Edit Scope
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={4} className="px-6 py-8 text-center text-zinc-500 text-sm">
+                  No users found matching your filters.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
 
-      {/* --- Custom Dark Theme Modal --- */}
+      {/* --- Modal (Unchanged) --- */}
       {editingUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-lg shadow-2xl p-6 animate-in fade-in zoom-in duration-200">

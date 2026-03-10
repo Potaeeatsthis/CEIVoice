@@ -1,97 +1,154 @@
 // src/middleware.ts
+
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
-// Paths requiring JWT protection for API
-const protectedApiPaths = ['/api/tickets', '/api/users'];
+const SECRET_KEY = new TextEncoder().encode(
+  process.env.JWT_SECRET || 'fallback-secret-key-change-this'
+);
 
-// Standard CORS headers
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', 
+const PROTECTED_API_PATHS = ['/api/tickets', '/api/users'];
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-user-id, x-user-role, x-user-email',
+  'Access-Control-Allow-Headers':
+    'Content-Type, Authorization, x-user-id, x-user-role, x-user-email',
 };
 
+function addCors(response: NextResponse) {
+  Object.entries(CORS_HEADERS).forEach(([k, v]) => response.headers.set(k, v));
+  return response;
+}
+
+// Match /tickets/[id] — a specific ticket, not the list
+function isSpecificTicketPage(pathname: string): boolean {
+  return /^\/tickets\/\d+/.test(pathname);
+}
+
 export async function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname;
-  const userRole = request.cookies.get('user_role')?.value || 'USER';
+  const { pathname } = request.nextUrl;
 
-  // 0. Handle CORS Preflight
+  // CORS preflight
   if (request.method === 'OPTIONS') {
-    return NextResponse.json({}, { headers: corsHeaders });
+    return NextResponse.json({}, { headers: CORS_HEADERS });
   }
 
-  // --- NEW: PAGE PROTECTION LOGIC ---
-  // If a regular USER tries to access any /admin path, redirect them to create a ticket
+  const userRole = request.cookies.get('user_role')?.value ?? 'USER';
+  const hasToken = !!request.cookies.get('token')?.value;
 
-  if (path.startsWith('/admin') && userRole !== 'ADMIN' && userRole !== 'ASSIGNEE') {
-    return NextResponse.redirect(new URL('/tickets/create', request.url));
+  // Auth pages: redirect already-logged-in users
+  if (pathname === '/login' || pathname === '/register') {
+    if (hasToken) {
+      const dest =
+        userRole === 'ADMIN'
+          ? '/admin/tickets'
+          : userRole === 'ASSIGNEE'
+          ? '/assignee/tickets'
+          : '/tickets';
+      return NextResponse.redirect(new URL(dest, request.url));
+    }
+    return addCors(NextResponse.next());
   }
 
-  if (path.startsWith('/user') && userRole === 'ADMIN') {
-    return NextResponse.redirect(new URL('/admin/tickets', request.url));
+  // /tickets/[id] — allow guests through (read-only guest view handled in page)
+  // but redirect staff to their own views
+  if (isSpecificTicketPage(pathname)) {
+    if (hasToken && userRole === 'ADMIN') {
+      const id = pathname.split('/')[2];
+      return NextResponse.redirect(new URL(`/admin/tickets/${id}`, request.url));
+    }
+    if (hasToken && userRole === 'ASSIGNEE') {
+      const id = pathname.split('/')[2];
+      return NextResponse.redirect(new URL(`/assignee/tickets/${id}`, request.url));
+    }
+    // Guests (no token) and USER role — let through
+    return addCors(NextResponse.next());
   }
 
-  // --- API PROTECTION LOGIC (JWT) ---
-  const isApiProtected = protectedApiPaths.some((p) => path.startsWith(p));
-  
-  if (!isApiProtected) {
-    const response = NextResponse.next();
-    Object.entries(corsHeaders).forEach(([key, value]) => {
-      response.headers.set(key, value);
-    });
-    return response;
+  // /tickets (list page) — must be logged in as USER
+  if (pathname === '/tickets' || pathname.startsWith('/tickets/create')) {
+    if (!hasToken) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+    if (userRole === 'ADMIN') {
+      return NextResponse.redirect(new URL('/admin/tickets', request.url));
+    }
+    if (userRole === 'ASSIGNEE') {
+      return NextResponse.redirect(new URL('/assignee/tickets', request.url));
+    }
+  }
+
+  // Prevent ASSIGNEE from admin area
+  if (pathname.startsWith('/admin') && userRole === 'ASSIGNEE') {
+    return NextResponse.redirect(new URL('/assignee/tickets', request.url));
+  }
+
+  // Prevent USER from staff areas
+  if (
+    (pathname.startsWith('/admin') || pathname.startsWith('/assignee')) &&
+    userRole === 'USER'
+  ) {
+    return NextResponse.redirect(new URL('/tickets', request.url));
+  }
+
+  // Protect /user/* — must be logged in and must be USER role
+  if (pathname.startsWith('/user')) {
+    if (!hasToken) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+    if (userRole === 'ADMIN') {
+      return NextResponse.redirect(new URL('/admin/tickets', request.url));
+    }
+    if (userRole === 'ASSIGNEE') {
+      return NextResponse.redirect(new URL('/assignee/tickets', request.url));
+    }
+  }
+
+  // Protected API routes: verify JWT
+  const isProtectedApi = PROTECTED_API_PATHS.some((p) => pathname.startsWith(p));
+
+  if (!isProtectedApi) {
+    return addCors(NextResponse.next());
   }
 
   const authHeader = request.headers.get('authorization');
-  const token = authHeader?.split(' ')[1];
+  const token =
+    authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : request.cookies.get('token')?.value;
 
   if (!token) {
     return NextResponse.json(
       { error: 'Unauthorized: No token provided' },
-      { status: 401, headers: corsHeaders }
+      { status: 401, headers: CORS_HEADERS }
     );
   }
 
   try {
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, SECRET_KEY);
 
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-user-id', payload.userId as string);
     requestHeaders.set('x-user-role', payload.role as string);
     requestHeaders.set('x-user-email', payload.email as string);
 
-    const response = NextResponse.next({
-      request: { headers: requestHeaders },
-    });
-
-    Object.entries(corsHeaders).forEach(([key, value]) => {
-      response.headers.set(key, value);
-    });
-
-    return response;
-
-  } catch (error) {
+    return addCors(NextResponse.next({ request: { headers: requestHeaders } }));
+  } catch {
     return NextResponse.json(
       { error: 'Unauthorized: Invalid token' },
-      { status: 401, headers: corsHeaders }
+      { status: 401, headers: CORS_HEADERS }
     );
   }
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/api/tickets/:path*',
     '/api/users/:path*',
-    '/admin/:path*',   // Added to track admin page access
-    '/tickets/:path*', // Added to track general ticket page access
+    '/admin/:path*',
+    '/assignee/:path*',
+    '/tickets/:path*',
+    '/tickets',
+    '/user/:path*',
   ],
 };

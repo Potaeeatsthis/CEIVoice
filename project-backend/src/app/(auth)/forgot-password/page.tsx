@@ -1,4 +1,4 @@
-// src/app/auth/forgot-password/page.tsx
+// src/app/(auth)/forgot-password/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -22,86 +22,84 @@ export default function ForgotPasswordPage() {
       });
 
       const data = await res.json();
-
       if (!res.ok) throw new Error(data.error || 'Something went wrong');
 
       setStatus('success');
-      setMessage('If an account exists with that email, we have sent a reset link.');
-    } catch (error: any) {
+      setMessage("If an account exists with that email, we've sent a reset link. Check your inbox.");
+    } catch (err: any) {
       setStatus('error');
-      setMessage(error.message);
+      setMessage(err.message);
     }
   };
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8 bg-white p-8 shadow rounded-lg">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-            Reset your password
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Enter your email address and we'll send you a link to reset your password.
-          </p>
+  if (status === 'success') {
+    return (
+      <>
+        <div className="flex flex-col space-y-2 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight text-white">Check your email</h1>
         </div>
 
-        {status === 'success' ? (
-          <div className="rounded-md bg-green-50 p-4">
-            <div className="flex">
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-green-800">Check your email</h3>
-                <div className="mt-2 text-sm text-green-700">
-                  <p>{message}</p>
-                </div>
-                <div className="mt-4">
-                  <Link href="/login" className="text-sm font-medium text-green-600 hover:text-green-500">
-                    Back to login &rarr;
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="email-address" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="relative block w-full rounded-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 pl-3"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
+        <div className="bg-green-900/30 border border-green-800 text-green-300 px-4 py-3 rounded-md text-sm">
+          {message}
+        </div>
 
-            {status === 'error' && (
-              <div className="text-sm text-red-600 text-center">{message}</div>
-            )}
+        <p className="text-center text-sm text-zinc-400">
+          <Link href="/login" className="underline underline-offset-4 hover:text-white font-medium">
+            ← Back to login
+          </Link>
+        </p>
+      </>
+    );
+  }
 
-            <div>
-              <button
-                type="submit"
-                disabled={status === 'loading'}
-                className="group relative flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50"
-              >
-                {status === 'loading' ? 'Sending...' : 'Send Reset Link'}
-              </button>
-            </div>
-            
-            <div className="text-center text-sm">
-               <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
-                 Back to Login
-               </Link>
-            </div>
-          </form>
-        )}
+  return (
+    <>
+      <div className="flex flex-col space-y-2 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight text-white">Reset your password</h1>
+        <p className="text-sm text-zinc-400">
+          Enter your email and we'll send you a reset link.
+        </p>
       </div>
-    </div>
+
+      {status === 'error' && (
+        <div className="bg-red-900/30 border border-red-800 text-red-300 px-4 py-3 rounded-md text-sm">
+          {message}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <label htmlFor="email" className="text-sm font-medium text-zinc-200">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="name@example.com"
+              className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1 text-sm text-zinc-100 placeholder:text-zinc-500 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={status === 'loading'}
+            className="inline-flex h-9 items-center justify-center rounded-md bg-white px-4 py-2 text-sm font-medium text-black shadow hover:bg-zinc-200 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+          >
+            {status === 'loading' ? 'Sending…' : 'Send Reset Link'}
+          </button>
+        </div>
+      </form>
+
+      <p className="text-center text-sm text-zinc-400">
+        <Link href="/login" className="underline underline-offset-4 hover:text-white font-medium">
+          ← Back to login
+        </Link>
+      </p>
+    </>
   );
 }

@@ -3,19 +3,24 @@ import json
 import time
 import threading
 import traceback
-import torch
+import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from supabase import create_client, Client
-
+import torch
+import numpy as np
+from transformers import BertTokenizer, BertForSequenceClassification
 import pika
 
-from transformers import BertTokenizer, BertForSequenceClassification
+from transformers import pipeline
 from sentence_transformers import SentenceTransformer
+
+from email_templates import get_user_ticket_received_html, get_staff_assignment_html
 
 load_dotenv("./main.env")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
 RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5672))
@@ -27,87 +32,147 @@ app = FastAPI()
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# Map Categories to specific Staff User UUIDs
+SPECIALIST_MAP = {
+    "Network": "089269d0-a6f9-49d4-95d9-dc59d00b6faf",  # Top
+    "Hardware": "089269d0-a6f9-49d4-95d9-dc59d00b6faf", # Top
+    "Software": "35bb8da8-ade3-4ee5-8df1-e9154db236d2", # In
+    "Access": "b1e0b1a7-376a-4830-aa00-98b3681b8049",   # ChingChing
+    "General": "d9f368f0-0bd9-49eb-ac7e-a61246f824eb",  # Fallback
+}
+
 print("Loading AI Models... (This happens only once)")
 
-ID2LABEL = {0: "Billing", 1: "Technical Support"}
-MODEL_PATH = "./trained_ticket_model"
+print("Loading Custom CEiVoice Model...")
+MODEL_PATH = "./trained_ticket_model/"
 
-if os.path.exists(MODEL_PATH):
-    print(f"Loading Custom Model from {MODEL_PATH}...")
+try:
     tokenizer = BertTokenizer.from_pretrained(MODEL_PATH)
-    classifier = BertForSequenceClassification.from_pretrained(MODEL_PATH)
-else:
-    print("Warning: Custom model not found. Loading default BERT (untrained).")
-    tokenizer = BertTokenizer.from_pretrained("google-bert/bert-base-uncased")
-    classifier = BertForSequenceClassification.from_pretrained(
-        "google-bert/bert-base-uncased",
-        num_labels=len(ID2LABEL)
-    )
+    model = BertForSequenceClassification.from_pretrained(MODEL_PATH)
+    model.eval()
 
-classifier.eval() # inference mode
+    try:
+        class_names = np.load(f"{MODEL_PATH}/classes.npy", allow_pickle=True)
+    except:
+        print("⚠️ Warning: classes.npy not found. Using default alphabetical order.")
+        class_names = ["Access", "General", "Hardware", "Network", "Software"]
 
-# Optional: Move to GPU if available
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-classifier.to(device)
-print(f"Classifier loaded on {device}")
+    print("✅ Custom BERT Model Loaded!")
+except Exception as e:
+    print(f"❌ Failed to load custom model: {e}")
 
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
-print("AI Models Ready!")
+try:
+    print("Loading Title Generator (FLAN-T5)...")
+    summarizer = pipeline("text2text-generation", model="google/flan-t5-base")
 
-def predict_category(text: str) -> str:
-    """Uses BERT to classify the ticket text into Technical Support or Billing."""
-    # Ensure inputs are moved to the same device as the model
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
-    inputs = {key: val.to(device) for key, val in inputs.items()}
-    
-    with torch.no_grad():
-        outputs = classifier(**inputs)
-        
-    # Get the index with the highest score
-    probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
-    confidence, predicted_id = torch.max(probs, dim=-1)
-    
-    if confidence < 0.6 :
-        return "General"
-    else :
-        return ID2LABEL[predicted_id.item()]
+    print("Loading Embedder...")
+    embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
-def predict_tags(text: str) -> list:
-    """
-    Scans the text for keywords to assign Scope Tags:
-    IT, HR, Finance, Database, IT Operations
-    """
-    text_lower = text.lower()
-    tags = []
-    
-    # Keyword mapping for your specific tags
-    keywords = {
-        "Database": ["database", "sql", "postgres", "mongo", "query", "backup", "data"],
-        "HR": ["hr", "human resources", "salary", "payroll", "leave", "hiring", "contract"],
-        "Finance": ["finance", "billing", "invoice", "payment", "cost", "budget", "tax"],
-        "IT Operations": ["operations", "devops", "server", "deployment", "aws", "cloud", "pipeline", "infrastructure"],
-        "IT": ["it", "support", "computer", "laptop", "software", "hardware", "vpn", "login", "wifi"]
+    print("✅ AI Models Ready!")
 
+except Exception as e:
+    print(f"❌ Model loading failed: {e}")
+    traceback.print_exc()
+
+def send_email(to_email: str, subject: str, html_content: str):
+    """Sends a REAL email using the Resend API and your verified domain."""
+    if not RESEND_API_KEY:
+        print("⚠️ No RESEND_API_KEY found. Skipping email.")
+        return
+
+    url = "https://api.resend.com/emails"
+    headers = {
+        "Authorization": f"Bearer {RESEND_API_KEY}",
+        "Content-Type": "application/json"
     }
 
-    for tag, keys in keywords.items():
-        if any(key in text_lower for key in keys):
-            tags.append(tag)
-            
-    return tags if tags else []
+    payload = {
+        "from": "CEiVoice Support <support@ceivoice.com>", 
+        "to": to_email,
+        "subject": subject,
+        "html": html_content
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code in [200, 201]:
+            print(f"Email sent to {to_email}")
+        else:
+            print(f"❌ Failed to send email: {response.text}")
+    except Exception as e:
+        print(f"❌ Email Error: {e}")
+
+def predict_category(text: str):
+    """Uses the custom BERT model to classify."""
+    try:
+        # Tokenize
+        inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=128, padding=True)
+
+        # Run the Model
+        with torch.no_grad():
+            logits = model(**inputs).logits
+
+        # Calculate Probabilities
+        probs = torch.nn.functional.softmax(logits, dim=1)
+
+        # Get Winner
+        confidence, predicted_id = torch.max(probs, dim=1)
+        category = class_names[predicted_id.item()]
+
+        if confidence.item() < 0.5:
+             return "General", confidence.item()
+
+        return category, confidence.item()
+
+    except Exception as e:
+        print(f"Classification Error: {e}")
+        return "General", 0.0
+
+def generate_smart_title(description: str) -> str:
+    try:
+        if len(description) < 20:
+            return description
+
+        # Truncate Input:
+        # T5 runs faster and more accurately if we don't feed it with full desc.
+        short_desc = description[:250]
+
+        # Strong Instruction:
+        prompt = f"Identify the core technical problem in 3-5 words: {short_desc}"
+
+        output = summarizer(
+            prompt, 
+            max_new_tokens=10,
+            do_sample=False, 
+            num_beams=4
+        )
+
+        title = output[0]['generated_text']
+
+        title = title.replace("Problem:", "").strip()
+
+        if title.endswith('.'):
+            title = title[:-1]
+
+        # In case the model is messed up
+        if len(title) > 60:
+             title = "The model can not Generate title"+ title[:57] + "..."
+
+        return title.title()
+
+    except Exception as e:
+        print(f"Summarizer failed: {e}")
+        return description.split('.')[0][:60] + "..."
 
 def get_similar_solutions(text: str) -> str:
-    """Uses Supabase Vector Search to find solved tickets."""
     try:
-        # Convert text to 384-dim vector
         vector = embedder.encode(text).tolist()
 
-        # Call the Postgres function (defined in your SQL)
         res = supabase.rpc(
             "match_tickets",
             {
                 "query_embedding": vector,
-                "match_threshold": 0.75, # 75% similarity required
+                "match_threshold": 0.75,
                 "match_count": 3
             }
         ).execute()
@@ -115,7 +180,6 @@ def get_similar_solutions(text: str) -> str:
         if not res.data:
             return "No similar past tickets found."
 
-        # Format the list of found solutions
         solutions = []
         for ticket in res.data:
             solutions.append(f"- (Ticket #{ticket['id']}) {ticket['ai_solution']}")
@@ -127,98 +191,129 @@ def get_similar_solutions(text: str) -> str:
         return "Recommendations unavailable."
 
 def process_ticket(ticket_id: int, description: str):
-    """Orchestrates the AI tasks."""
+    """Orchestrates the AI tasks and sends notifications."""
     print(f"Processing Ticket #{ticket_id}...")
 
-    # 1. Classify Category (Technical Support / Billing)
-    category = predict_category(description)
-    
-    # 2. Predict Scope Tags (IT, HR, Finance, etc.)
-    tags = predict_tags(description)
+    # Classify Category
+    category, confidence = predict_category(description)
 
-    # 3. Recommend
+    # Generate Smart Title
+    raw_title = generate_smart_title(description)
+
+    # Prepend Category to Title ---
+    smart_title = f"[{category}] {raw_title}"
+
+    # Recommend Solutions
     recommendations = get_similar_solutions(description)
 
-    # 4. Embed (for future search)
+    # Embed Description
     embedding = embedder.encode(description).tolist()
 
-    # 5. Construct Response
-    # We include the detected tags in the summary or a specific field
+    # Determine Assignee
+    assigned_to_uuid = SPECIALIST_MAP.get(category, None)
+
+    # Update Database
     ai_response = {
-        "title": f"[{category}] Automated Ticket",
-        "summary": f"Category: {category} | Tags: {', '.join(tags)}\nIssue: {description}",
-        "ai_solution": f"AI Suggested Next Steps:\n{recommendations}",
+        "title": smart_title,
         "category": category,
+        "ai_solution": f"AI Suggested Next Steps:\n{recommendations}",
+        "assigned_to": assigned_to_uuid,
         "embedding": embedding,
-        "status": "NEW",
+        "status": "DRAFT",
         "updated_at": "now()"
     }
 
-    # Update Database
     supabase.table("tickets").update(ai_response).eq("id", ticket_id).execute()
-    print(f"Ticket #{ticket_id} Updated! [Category: {category}, Tags: {tags}]")
+
+    print(f"✅ Ticket #{ticket_id} Updated:")
+    print(f"   Title: {smart_title}")
+    print(f"   Category: {category} ({round(confidence*100)}%)")
+    print(f"   Assigned: {assigned_to_uuid}")
+
+    try:
+        # Fetch Ticket Creator's Email
+        ticket_res = supabase.table("tickets").select("created_by").eq("id", ticket_id).execute()
+
+        if ticket_res.data and len(ticket_res.data) > 0:
+            created_by_uuid = ticket_res.data[0].get("created_by")
+
+            if created_by_uuid:
+                # Try to find the user (WITHOUT .single() to prevent crashing)
+                user_res = supabase.table("users").select("email").eq("id", created_by_uuid).execute()
+
+                if user_res.data and len(user_res.data) > 0:
+                    user_email = user_res.data[0].get("email")
+                    if user_email:
+                        html_body = get_user_ticket_received_html(ticket_id, smart_title, category)
+                        send_email(user_email, f"[Ticket #{ticket_id}] Request Received", html_body)
+                else:
+                    print(f"⚠️ User {created_by_uuid} not found in 'users' table. Skipping email.")
+
+        # 2. Notify the Specialist (Assignee)
+        if assigned_to_uuid:
+            staff_res = supabase.table("users").select("email").eq("id", assigned_to_uuid).execute()
+
+            if staff_res.data and len(staff_res.data) > 0:
+                staff_email = staff_res.data[0].get("email")
+                if staff_email:
+                    html_body = get_staff_assignment_html(ticket_id, smart_title, category, description)
+                    send_email(staff_email, f"[Action Required] Assigned Ticket #{ticket_id}", html_body)
+            else:
+                print(f"⚠️ Specialist {assigned_to_uuid} not found in 'users' table. Skipping email.")
+
+    except Exception as e:
+        print(f"⚠️ Error sending emails: {e}")
 
 def rabbitmq_callback(ch, method, properties, body):
     try:
-        print(f" [x] Received {body}")
         payload = json.loads(body)
         ticket_id = payload.get('ticket_id')
         description = payload.get('description')
 
         if ticket_id and description:
             process_ticket(ticket_id, description)
-            print(f" [x] Done processing Ticket {ticket_id}")
         else:
             print(" [!] Missing data in payload")
 
-        # Ack valid processing
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     except json.JSONDecodeError:
         print(" [!] Error: Malformed JSON. Discarding message.")
-        # Do not requeue malformed JSON, it will never work.
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
     except Exception as e:
         print(f" [!] Worker Logic Error: {e}")
-        # Safer default: Discard (requeue=False) and log error so the queue doesn't get stuck.
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
 def start_consumer():
     """Connects to RabbitMQ and starts the blocking consumer loop."""
     print(f"Connecting to RabbitMQ at {RABBITMQ_HOST}...")
-    try:
-        credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS)
-        parameters = pika.ConnectionParameters(
-            host=RABBITMQ_HOST, 
-            port=RABBITMQ_PORT, 
-            credentials=credentials,
-            heartbeat=600 # High heartbeat because AI tasks might take time
-        )
-        connection = pika.BlockingConnection(parameters)
-        channel = connection.channel()
+    while True:
+        try:
+            credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS)
+            parameters = pika.ConnectionParameters(
+                host=RABBITMQ_HOST, 
+                port=RABBITMQ_PORT, 
+                credentials=credentials,
+                heartbeat=600
+            )
+            connection = pika.BlockingConnection(parameters)
+            channel = connection.channel()
 
-        # Declare the queue (idempotent: creates if not exists)
-        channel.queue_declare(queue=QUEUE_NAME, durable=True)
+            channel.queue_declare(queue=QUEUE_NAME, durable=True)
+            channel.basic_qos(prefetch_count=1)
+            channel.basic_consume(queue=QUEUE_NAME, on_message_callback=rabbitmq_callback)
 
-        # Set QoS: Process 1 message at a time to avoid overwhelming the CPU
-        channel.basic_qos(prefetch_count=1)
+            print("AI Worker Listening for new tickets (RabbitMQ)...")
+            channel.start_consuming()
 
-        channel.basic_consume(queue=QUEUE_NAME, on_message_callback=rabbitmq_callback)
-
-        print("AI Worker Listening for new tickets (RabbitMQ)...")
-        channel.start_consuming()
-
-    except Exception : 
-        print("RabbitMQ Connection Failed. Detailed Traceback:")
-        traceback.print_exc()
-        time.sleep(5)
+        except Exception: 
+            print("RabbitMQ Connection Failed. Retrying in 5s...")
+            traceback.print_exc()
+            time.sleep(5)
 
 @app.on_event("startup")
 def startup_event():
-    """Starts the RabbitMQ consumer in a background thread."""
-    # We run pika in a separate thread because channel.start_consuming() is blocking
-    # and would otherwise freeze the FastAPI health check endpoint.
     consumer_thread = threading.Thread(target=start_consumer, daemon=True)
     consumer_thread.start()
 

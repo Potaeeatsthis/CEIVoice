@@ -1,60 +1,78 @@
 // src/app/api/auth/password-reset/request/route.ts
+
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { Resend } from 'resend';
 import crypto from 'crypto';
-import { ResetPasswordEmail } from '@/components/emails/ResetPasswordEmail';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendPasswordResetEmail } from '@/lib/email';
 
 export async function POST(request: Request) {
   try {
     const { email } = await request.json();
 
-    // 1. Check if user exists
-    const { data: user } = await supabaseAdmin
-      .from('users')
-      .select('id, full_name')
-      .eq('email', email)
-      .single();
-
-    if (!user) {
-      // Security: Don't reveal if user exists or not. Return 200 regardless.
-      return NextResponse.json({ success: true, message: 'If that email exists, we sent a link.' });
+    if (!email) {
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    // 2. Generate Reset Token (32 chars hex) & Expiry (30 minutes)
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const expiryDate = new Date(Date.now() + 1800000).toISOString(); // + 30 minutes
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('users')
+      .select('id, full_name, email, provider')
+      .ilike('email', email.trim())
+      .single();
 
-    // 3. Save token to DB
+    console.log('[Password Reset] Lookup email:', email.toLowerCase());
+    console.log('[Password Reset] User found:', user ? `id=${user.id}, provider=${user.provider}` : 'NO');
+    if (userError) console.log('[Password Reset] DB error:', userError.message);
+
+    // Don't reveal if email exists
+    if (!user) {
+      console.log('[Password Reset] No user found — returning fake success');
+      return NextResponse.json({
+        success: true,
+        message: 'If that email exists, we sent a reset link.',
+      });
+    }
+
+    // Google OAuth accounts can't reset password
+    if (user.provider === 'google') {
+      console.log('[Password Reset] Google OAuth user — skipping email');
+      return NextResponse.json({
+        error: 'This account uses Google sign-in. Please log in with Google instead.',
+      }, { status: 400 });
+    }
+
+    // Generate secure token (32 bytes = 64 hex chars) with 30-min expiry
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiryDate = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+
     const { error: updateError } = await supabaseAdmin
       .from('users')
-      .update({ 
-        reset_token: resetToken, 
-        reset_token_expiry: expiryDate 
-      })
+      .update({ reset_token: resetToken, reset_token_expiry: expiryDate })
       .eq('id', user.id);
 
     if (updateError) throw updateError;
 
-    // 4. Send Email via Resend
-    // Construct the link: e.g., https://your-app.com/auth/reset-password?token=...
-    const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${resetToken}`;
+    // Fallback to localhost if env var is missing
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const resetLink = `${appUrl}/api/auth/password-reset/verify?token=${resetToken}`;
 
-    console.log('Generated Reset Link:', resetLink);
-
-    await resend.emails.send({
-      from: 'CEiVoice Support <support@ceivoice.com>',
-      to: email,
-      subject: 'Reset your password',
-      react: ResetPasswordEmail({ link: resetLink, name: user.full_name })
-    });
+    try {
+      // Use your sleek newly designed email template!
+      await sendPasswordResetEmail(email, user.full_name || 'User', resetLink);
+      console.log('\n=============================================');
+      console.log(`✉️ PASSWORD RESET LINK FOR: ${email}`);
+      console.log(resetLink);
+      console.log('=============================================\n');
+    } catch (emailError: any) {
+      console.error('Failed to send password reset email:', emailError);
+      return NextResponse.json(
+        { error: 'Failed to send reset email. Please try again later.' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ success: true, message: 'Reset email sent' });
-
   } catch (error: any) {
     console.error('Reset Request Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
