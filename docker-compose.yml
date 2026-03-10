@@ -42,8 +42,11 @@ services:
       context: ./project-backend
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-        - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+          - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+          - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+          - SUPABASE_URL=${SUPABASE_URL}
+          - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+          - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
     container_name: ceivoice-frontend
     restart: always
     ports:
