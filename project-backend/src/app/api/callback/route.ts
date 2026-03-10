@@ -7,7 +7,8 @@ export async function GET(request: Request) {
   const code = requestUrl.searchParams.get('code')
 
   if (code) {
-    const cookieStore = cookies()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cookieStore = cookies() as any
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     
     // This exchanges the Auth Code for a Session (Access Token + Refresh Token)

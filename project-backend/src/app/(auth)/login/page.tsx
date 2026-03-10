@@ -4,8 +4,17 @@
 
 import { useState, Suspense } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
+
+const GoogleOAuthProvider = dynamic(
+  () => import('@react-oauth/google').then(m => ({ default: m.GoogleOAuthProvider })),
+  { ssr: false }
+);
+const GoogleLogin = dynamic(
+  () => import('@react-oauth/google').then(m => ({ default: m.GoogleLogin })),
+  { ssr: false, loading: () => <div className="h-10 w-full rounded-md bg-zinc-800 animate-pulse" /> }
+);
 
 function LoginForm() {
   const router = useRouter();
@@ -21,10 +30,10 @@ function LoginForm() {
 
   const redirectByRole = (role: string) => {
     const redirect = searchParams.get('redirect');
-    if (redirect) { window.location.href = redirect; return; }
-    if (role === 'ADMIN') window.location.href = '/admin/tickets';
-    else if (role === 'ASSIGNEE') window.location.href = '/assignee/tickets';
-    else window.location.href = '/tickets';
+    if (redirect) { router.push(redirect); return; }
+    if (role === 'ADMIN') router.push('/admin/tickets');
+    else if (role === 'ASSIGNEE') router.push('/assignee/tickets');
+    else router.push('/tickets');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -171,15 +180,14 @@ function LoginForm() {
           </div>
         </div>
 
-        <div className="flex justify-center w-full">
+        <div className={`flex justify-center w-full${loading ? ' pointer-events-none opacity-50' : ''}`}>
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
             onError={() => setError('Google login failed')}
             theme="filled_black"
             width="350"
             text="continue_with"
-            shape="rect"
-            locale="en"
+            shape="rectangular"
           />
         </div>
       </div>

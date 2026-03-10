@@ -16,6 +16,10 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // Verify ticket exists
+  const { data: ticket } = await supabaseAdmin.from('tickets').select('id').eq('id', id).maybeSingle();
+  if (!ticket) return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
+
   // 1. Update Activity (Presence Lite)
   // This tells the system "I am online right now"
   await supabaseAdmin

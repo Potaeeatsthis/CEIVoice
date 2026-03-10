@@ -106,24 +106,26 @@ export async function POST(
         }[] = [];
 
         // ── Case 1: Staff (admin/assignee) sent the message → notify ticket creator
-        if (isStaff && !isSenderCreator && ticket.created_by_user?.email) {
-          console.log(`➕ Adding creator as recipient: ${ticket.created_by_user.email}`);
+        const creatorUser = ticket.created_by_user as any;
+        if (isStaff && !isSenderCreator && creatorUser?.email) {
+          console.log(`➕ Adding creator as recipient: ${creatorUser.email}`);
           recipients.push({
-            email: ticket.created_by_user.email,
-            name: ticket.created_by_user.full_name || 'User',
-            role: ticket.created_by_user.role || 'USER',
-            last_seen_at: ticket.created_by_user.last_seen_at,
+            email: creatorUser.email,
+            name: creatorUser.full_name || 'User',
+            role: creatorUser.role || 'USER',
+            last_seen_at: creatorUser.last_seen_at,
           });
         }
 
         // ── Case 2: Creator sent message → notify assignee (if assigned)
-        if (isSenderCreator && ticket.assigned_to_user?.email && !isSenderAssignee) {
-          console.log(`➕ Adding assignee as recipient: ${ticket.assigned_to_user.email}`);
+        const assigneeUser = ticket.assigned_to_user as any;
+        if (isSenderCreator && assigneeUser?.email && !isSenderAssignee) {
+          console.log(`➕ Adding assignee as recipient: ${assigneeUser.email}`);
           recipients.push({
-            email: ticket.assigned_to_user.email,
-            name: ticket.assigned_to_user.full_name || 'Team Member',
-            role: ticket.assigned_to_user.role || 'ASSIGNEE',
-            last_seen_at: ticket.assigned_to_user.last_seen_at,
+            email: assigneeUser.email,
+            name: assigneeUser.full_name || 'Team Member',
+            role: assigneeUser.role || 'ASSIGNEE',
+            last_seen_at: assigneeUser.last_seen_at,
           });
         }
 

@@ -64,7 +64,7 @@ async function getData(ticketId: string) {
     authorized: true,
     ticket, 
     comments: comments || [], 
-    currentUser: { id: userId, role: userRole },
+    currentUser: { id: userId ?? '', role: userRole },
     allUsers: staffUsers || [],
     linkedTickets: linkedTickets || [] // 👈 Pass this to the return object
   };
@@ -123,12 +123,12 @@ export default async function AdminTicketPage({ params }: { params: Promise<{ id
       </div>
 
       {/* Main Interactive View */}
-      <TicketDetailView 
+      <TicketDetailView
         ticket={data.ticket}
-        comments={data.comments}
-        currentUser={data.currentUser}
-        allUsers={data.allUsers}
-        linkedTickets={data.linkedTickets} // 👈 Pass the data here
+        comments={data.comments ?? []}
+        currentUser={data.currentUser ?? { id: '', role: 'ADMIN' }}
+        allUsers={data.allUsers ?? []}
+        linkedTickets={(data.linkedTickets ?? []) as any}
       />
     </div>
   );

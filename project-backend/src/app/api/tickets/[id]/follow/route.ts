@@ -18,6 +18,10 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
   }
 
+  // Verify ticket exists
+  const { data: ticket } = await supabaseAdmin.from('tickets').select('id').eq('id', ticketId).maybeSingle();
+  if (!ticket) return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
+
   // Upsert — safe to call even if already following
   const { error } = await supabaseAdmin
     .from('ticket_followers')

@@ -1,6 +1,11 @@
 // src/lib/email.ts
 
+import React from 'react';
 import { Resend } from 'resend';
+
+// React 19 FC return type includes Promise<ReactNode>; cast to ReactElement for Resend
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const re = (el: any): React.ReactElement => el;
 import TicketUpdateEmail from '@/components/emails/TicketUpdateEmail';
 import TicketCreatedEmail from '@/components/emails/TicketCreatedEmail';
 import NotificationEmail from '@/components/emails/NotificationEmail';
@@ -226,11 +231,11 @@ export async function sendRoleUpdatedEmail(
     from: 'CEiVoice System <support@ceivoice.com>',
     to: userEmail,
     subject: 'Your CEiVoice account role has been updated',
-    react: RoleUpdatedEmail({
+    react: re(RoleUpdatedEmail({
       userName,
       newRole,
       dashboardUrl: dashboardUrlForRole(newRole),
-    }),
+    })),
   });
 }
 
@@ -245,7 +250,7 @@ export async function sendWelcomeEmail(
     from: 'CEiVoice System <support@ceivoice.com>',
     to: userEmail,
     subject: 'Welcome to CEiVoice',
-    react: WelcomeEmail({ fullName, role }),
+    react: re(WelcomeEmail({ fullName, role })),
   });
 }
 
@@ -262,7 +267,7 @@ export async function sendPasswordResetEmail(
     from: 'CEiVoice Security <support@ceivoice.com>',
     to: userEmail,
     subject: 'Reset your CEiVoice password',
-    react: ResetPasswordEmail({ name, link }),
+    react: re(ResetPasswordEmail({ name, link })),
   });
 
   if (error) {
@@ -283,7 +288,7 @@ export async function sendPasswordChangedEmail(
     from: 'CEiVoice Security <support@ceivoice.com>',
     to: userEmail,
     subject: 'Your CEiVoice password was changed',
-    react: PasswordChangedEmail({ name }),
+    react: re(PasswordChangedEmail({ name })),
   });
 }
 

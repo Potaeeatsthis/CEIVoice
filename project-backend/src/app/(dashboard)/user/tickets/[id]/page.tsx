@@ -40,7 +40,7 @@ export default async function UserTicketDetailPage({
     redirect('/tickets');
   }
 
-  const { ticket, comments } = data;
+  const { ticket, comments = [] } = data;
 
   const isClosed =
     ticket.status === 'FAILED' ||

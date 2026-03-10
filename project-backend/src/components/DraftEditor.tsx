@@ -5,7 +5,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PriorityIcon from './PriorityIcon';
-import Toast from './Toast';
 
 type User = { id: string; full_name: string; role?: string; };
 type Ticket = {
@@ -20,6 +19,7 @@ type Ticket = {
   assigned_to: string | null;
   created_by_user: { email: string };
   img?: string[] | null;
+  ai_solution?: string | null;
 };
 
 export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allUsers: User[] }) {
@@ -96,11 +96,10 @@ export default function DraftEditor({ ticket, allUsers }: { ticket: Ticket; allU
     <div className="max-w-6xl mx-auto h-[calc(100vh-64px)] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 relative overflow-y-auto">
       
       {toast && (
-        <Toast 
-          message={toast.msg} 
-          type={toast.type} 
-          onClose={() => setToast(null)} 
-        />
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium shadow-lg ${toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
+          <span>{toast.msg}</span>
+          <button onClick={() => setToast(null)} className="ml-2 text-zinc-400 hover:text-white">✕</button>
+        </div>
       )}
 
       {/* --- HEADER --- */}

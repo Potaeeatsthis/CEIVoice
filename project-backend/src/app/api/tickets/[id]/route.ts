@@ -85,7 +85,10 @@ export async function GET(
       .eq('id', id)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'PGRST116') return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
+      throw error;
+    }
 
     return NextResponse.json(data);
 

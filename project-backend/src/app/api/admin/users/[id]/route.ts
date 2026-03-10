@@ -47,9 +47,10 @@ export async function PATCH(
           from: 'CEIVoice Admin <system@ceivoice.com>', // Replace with your verified sender
           to: updatedUser.email,
           subject: 'Your CEIVoice Role Has Been Updated',
-          react: RoleUpdatedEmail({ 
-            userName: updatedUser.full_name || 'User', 
-            newRole: role 
+          react: RoleUpdatedEmail({
+            userName: updatedUser.full_name || 'User',
+            newRole: role,
+            dashboardUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
           }),
         });
       } catch (emailError) {

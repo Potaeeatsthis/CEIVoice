@@ -59,7 +59,7 @@ export async function POST(request: Request) {
           google_id: googleId,
           scope: [],
         })
-        .select('id, email, full_name, role')
+        .select('id, email, full_name, role, provider')
         .single();
 
       if (error) {

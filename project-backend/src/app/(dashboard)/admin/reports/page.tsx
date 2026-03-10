@@ -148,7 +148,7 @@ export default function AdminReportsPage() {
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={categoryData} cx="50%" cy="50%" innerRadius={55} outerRadius={75} paddingAngle={4} dataKey="value" activeOuterRadiusOffset={0}>
+                  <Pie data={categoryData} cx="50%" cy="50%" innerRadius={55} outerRadius={75} paddingAngle={4} dataKey="value">
                     {categoryData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
@@ -216,7 +216,7 @@ export default function AdminReportsPage() {
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={aiData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={4} dataKey="value" activeOuterRadiusOffset={0}>
+                  <Pie data={aiData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={4} dataKey="value">
                     {aiData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={AI_COLORS[index % AI_COLORS.length]} />
                     ))}

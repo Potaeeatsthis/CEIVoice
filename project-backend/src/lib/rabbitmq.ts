@@ -7,7 +7,7 @@ const RABBITMQ_HOST = process.env.RABBITMQ_HOST || 'localhost';
 
 const url = `amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}:5672?heartbeat=60`;
 
-let connection: amqp.Connection | null = null;
+let connection: amqp.ChannelModel | null = null;
 let channel: amqp.Channel | null = null;
 
 function resetConnection() {

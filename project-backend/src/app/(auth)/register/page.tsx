@@ -302,8 +302,7 @@ export default function RegisterPage() {
             theme="filled_black"
             width="350"
             text="signup_with"
-            shape="rect"
-	    locale="en"
+            shape="rectangular"
           />
         </div>
 

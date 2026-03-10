@@ -1,5 +1,6 @@
 // src/app/api/auth/register/route.ts
 
+import React from 'react';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { hashPassword } from '@/lib/auth';
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
         from: 'CEiVoice Support <support@ceivoice.com>',
         to: email,
         subject: 'Welcome to CEiVoice!',
-        react: WelcomeEmail({ fullName: full_name || 'User', role: assignedRole }),
+        react: WelcomeEmail({ fullName: full_name || 'User', role: assignedRole }) as React.ReactElement,
       })
       .catch((err) => console.error('Failed to send welcome email:', err));
 

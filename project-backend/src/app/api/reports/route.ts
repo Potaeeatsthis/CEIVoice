@@ -69,7 +69,7 @@ export async function GET(request: Request) {
       // Assignee Performance Logic
       const assigneeStats: Record<string, any> = {};
       tickets.forEach(t => {
-        const assigneeName = t.assigned_to_user?.full_name || 'Unassigned';
+        const assigneeName = (t.assigned_to_user as any)?.full_name || 'Unassigned';
         if (!assigneeStats[assigneeName]) {
           assigneeStats[assigneeName] = { name: assigneeName, solved: 0, pending: 0, total: 0 };
         }

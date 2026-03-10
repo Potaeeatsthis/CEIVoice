@@ -48,7 +48,7 @@ async function getData(ticketId: string) {
     authorized: true,
     ticket,
     comments: comments || [],
-    currentUser: { id: userId, role: userRole },
+    currentUser: { id: userId ?? '', role: userRole ?? 'ASSIGNEE' },
     allUsers: staffUsers || []
   };
 }
@@ -108,9 +108,9 @@ export default async function AssigneeTicketPage({ params }: { params: { id: str
       {/* Main view (status + reassign allowed) */}
       <TicketDetailView
         ticket={data.ticket}
-        comments={data.comments}
-        currentUser={data.currentUser}
-        allUsers={data.allUsers}
+        comments={data.comments ?? []}
+        currentUser={data.currentUser ?? { id: '', role: 'ASSIGNEE' }}
+        allUsers={data.allUsers ?? []}
       />
     </div>
   );

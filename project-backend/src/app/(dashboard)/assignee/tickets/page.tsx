@@ -32,7 +32,9 @@ async function getTickets(userId: string) {
     status: ticket.status,
     priority: ticket.priority,
     deadline: ticket.deadline,
-    assignee_name: ticket.assigned_to_user?.full_name ?? null,
+    created_at: ticket.created_at,
+    assigned_to_user: ticket.assigned_to_user ?? null,
+    created_by_user: ticket.created_by_user ?? null,
   }));
 }
 
@@ -70,7 +72,7 @@ export default async function AssigneeTicketsPage() {
 
       {/* ✅ Pass userId from server so the client doesn't need to re-fetch it */}
       <div className="flex-1 min-h-0">
-        <AssigneeTicketTable initialTickets={tickets} userId={userId} />
+        <AssigneeTicketTable initialTickets={tickets as any} userId={userId} />
       </div>
     </div>
   );
