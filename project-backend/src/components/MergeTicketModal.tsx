@@ -2,7 +2,8 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface MergeTicketModalProps {
   isOpen: boolean;
@@ -30,8 +31,11 @@ export default function MergeTicketModal({ isOpen, onClose, selectedTicketIds, s
   const [priority, setPriority] = useState('MEDIUM');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
-  if (!isOpen) return null;
+  useEffect(() => { setMounted(true); }, []);
+
+  if (!isOpen || !mounted) return null;
 
   const handleSubmit = async () => {
     if (!title.trim() || !description.trim()) {
@@ -64,7 +68,7 @@ export default function MergeTicketModal({ isOpen, onClose, selectedTicketIds, s
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
         
@@ -176,6 +180,7 @@ export default function MergeTicketModal({ isOpen, onClose, selectedTicketIds, s
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

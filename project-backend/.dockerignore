@@ -1,0 +1,23 @@
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Next.js build output
+.next
+out
+
+# Env files (inject at runtime)
+.env
+.env.*
+!.env.example
+
+# Source control
+.git
+.gitignore
+
+# Misc
+README.md
+.eslintrc*
+eslint.config.*
+.dockerignore
+Dockerfile

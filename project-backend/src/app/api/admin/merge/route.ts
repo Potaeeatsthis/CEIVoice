@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { cookies } from 'next/headers';
+import { sendTicketNotification } from '@/lib/email';
 
 export async function POST(request: Request) {
   try {
@@ -68,7 +69,18 @@ export async function POST(request: Request) {
       message: `System: Merged from tickets #${ticketIds.join(', #')}`,
       is_internal: true
     });
+    // Notify users whose tickets were merged (Fire & Forget)
+    const { data: mergedTickets } = await supabaseAdmin
+      .from('tickets')
+      .select('id, title, description, status, created_by, created_by_user:users!tickets_created_by_fkey(email, full_name, role)')
+      .in('id', ticketIds);
 
+    if (mergedTickets) {
+      const notifyAll = mergedTickets.map((ticket: any) =>
+        sendTicketNotification('MERGED', { ...ticket, parent_ticket_id: parentTicket.id })
+      );
+      Promise.allSettled(notifyAll).catch(() => {});
+    }
     return NextResponse.json({ success: true, parentId: parentTicket.id });
 
   } catch (error: any) {

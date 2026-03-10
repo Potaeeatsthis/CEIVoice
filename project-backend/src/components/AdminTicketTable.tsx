@@ -153,6 +153,7 @@ export default function AdminTicketTable({ initialTickets, userId }: { initialTi
   };
 
   return (
+    <>
     <div className="relative">
       
       {/* ✨ NEW: Custom Floating Toast Notification */}
@@ -265,6 +266,8 @@ export default function AdminTicketTable({ initialTickets, userId }: { initialTi
         </div>
       )}
 
+    </div>
+
       {isMergeModalOpen && (
         <MergeTicketModal
 	  isOpen={isMergeModalOpen}
@@ -274,7 +277,7 @@ export default function AdminTicketTable({ initialTickets, userId }: { initialTi
 	  onSuccess={() => { setIsMergeModalOpen(false); setSelectedIds([]); window.location.reload(); }} 
 	/>
       )}
-    </div>
+    </>
   );
 }
 

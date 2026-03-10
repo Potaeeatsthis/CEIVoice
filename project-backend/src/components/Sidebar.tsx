@@ -197,7 +197,25 @@ function AdminMenu({ pathname, totalUnread, draftCount }: { pathname: string, to
 
 // ── Assignee ───────────────────────────────────────────────────────────────────
 
+type LeaderboardEntry = { full_name: string; solved: number };
+
 function AssigneeMenu({ pathname, totalUnread }: { pathname: string, totalUnread: number }) {
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      try {
+        const res = await fetch('/api/reports/leaderboard');
+        if (!res.ok) return;
+        const data: LeaderboardEntry[] = await res.json();
+        setLeaderboard(data);
+      } catch (e) {
+        console.error('Failed to fetch leaderboard', e);
+      }
+    };
+    fetchLeaderboard();
+  }, []);
+
   return (
     <div className="mb-6 space-y-1">
       <div className="px-3 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Assignee Console</div>
@@ -210,6 +228,31 @@ function AssigneeMenu({ pathname, totalUnread }: { pathname: string, totalUnread
       <SidebarLink href="/assignee/history" label="History Log" currentPath={pathname}
         icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
       />
+
+      {/* ── Leaderboard ── */}
+      <div className="mt-4 mx-1 rounded-lg border border-zinc-800 bg-zinc-900/40 p-2.5">
+        <div className="flex items-center gap-1.5 mb-2 px-0.5">
+          <svg className="w-3 h-3 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Leaderboard</span>
+        </div>
+
+        {leaderboard.length === 0 ? (
+          <p className="text-[10px] text-zinc-600 text-center py-2">No solved tickets yet</p>
+        ) : (
+          <div className="space-y-0.5">
+            {leaderboard.map((entry, i) => {
+              const medal = i === 0 ? 'text-amber-400' : i === 1 ? 'text-zinc-400' : i === 2 ? 'text-amber-700' : '';
+              return (
+                <div key={entry.full_name} className="flex items-center gap-2 px-1 py-1 rounded-md hover:bg-zinc-800/50 transition-colors">
+                  <span className={`text-[10px] font-bold w-3 shrink-0 ${medal || 'text-zinc-600'}`}>{i + 1}</span>
+                  <span className="text-[11px] text-zinc-300 truncate flex-1">{entry.full_name}</span>
+                  <span className="text-[11px] font-bold text-emerald-400 shrink-0">{entry.solved}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
