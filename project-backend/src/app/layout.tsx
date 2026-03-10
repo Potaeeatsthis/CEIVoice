@@ -18,6 +18,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "CEIVoice",
   description: "AI-Enhanced Support Ticket Management",
+  icons: {
+    icon: "/logo_cei.png",
+  },
 };
 
 export default function RootLayout({
