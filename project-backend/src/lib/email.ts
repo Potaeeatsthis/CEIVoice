@@ -107,6 +107,67 @@ export async function sendTicketNotification(
   await Promise.allSettled(emailPromises);
 }
 
+// ── NEW: Status change notification to ticket creator ─────────────────────────
+
+export async function sendTicketStatusUpdate(
+  ticket: any,
+  newStatus: string,
+  actorName: string = 'Support'
+) {
+  if (!process.env.RESEND_API_KEY) return;
+
+  const creator = ticket.created_by_user;
+  if (!creator?.email) return;
+
+  // Don't double-send for SOLVED/FAILED — those are handled by sendTicketNotification
+  if (newStatus === 'SOLVED' || newStatus === 'FAILED') return;
+
+  await resend.emails.send({
+    from: 'CEiVoice Support <support@ceivoice.com>',
+    to: creator.email,
+    subject: `[Ticket #${ticket.id}] Status updated to ${newStatus}`,
+    react: TicketUpdateEmail({
+      ticketId: ticket.id,
+      ticketTitle: ticket.title || 'Untitled Ticket',
+      actorName,
+      type: 'STATUS_CHANGED',
+      recipientName: creator.full_name || 'User',
+      link: ticketUrlForRole(creator.role || 'USER', ticket.id),
+      newValue: newStatus,
+    }),
+  });
+}
+
+// ── NEW: Priority change notification to ticket creator ───────────────────────
+
+export async function sendTicketPriorityUpdate(
+  ticket: any,
+  newPriority: string,
+  actorName: string = 'Support'
+) {
+  if (!process.env.RESEND_API_KEY) return;
+
+  const creator = ticket.created_by_user;
+  if (!creator?.email) return;
+
+  await resend.emails.send({
+    from: 'CEiVoice Support <support@ceivoice.com>',
+    to: creator.email,
+    subject: `[Ticket #${ticket.id}] Priority updated to ${newPriority}`,
+    react: TicketUpdateEmail({
+      ticketId: ticket.id,
+      ticketTitle: ticket.title || 'Untitled Ticket',
+      actorName,
+      type: 'PRIORITY_CHANGED',
+      recipientName: creator.full_name || 'User',
+      link: ticketUrlForRole(creator.role || 'USER', ticket.id),
+      newValue: newPriority,
+    }),
+  });
+}
+
+// ── Everything below is unchanged ─────────────────────────────────────────────
+
 export async function sendDeadlineReminder(ticket: any) {
   if (!process.env.RESEND_API_KEY) return;
 
@@ -226,8 +287,6 @@ export async function sendPasswordChangedEmail(
   });
 }
 
-// ── Ticket created / activated confirmation ───────────────────────────────────
-
 export async function sendTicketCreatedEmail(
   userEmail: string,
   recipientName: string,
@@ -235,7 +294,7 @@ export async function sendTicketCreatedEmail(
   ticketTitle: string,
   ticketDescription: string,
   userRole: string = 'USER',
-  ticketPriority?: string,          // ← added
+  ticketPriority?: string,
 ) {
   if (!process.env.RESEND_API_KEY) return;
 
@@ -250,7 +309,7 @@ export async function sendTicketCreatedEmail(
       ticketId,
       ticketTitle,
       ticketDescription,
-      ticketPriority,               // ← passed through
+      ticketPriority,
       link,
     }),
   });

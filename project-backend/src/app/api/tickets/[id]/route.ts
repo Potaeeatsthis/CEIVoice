@@ -3,7 +3,11 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { cookies } from 'next/headers';
-import { sendTicketNotification } from '@/lib/email'; // 👈 Import the helper
+import {
+  sendTicketNotification,
+  sendTicketStatusUpdate,
+  sendTicketPriorityUpdate,
+} from '@/lib/email';
 
 // 1. GET: Fetch a single ticket
 export async function GET(
@@ -28,7 +32,7 @@ export async function GET(
       .eq('id', id)
       .lt('deadline', now)
       .not('deadline', 'is', null)
-      .in('status', ['NEW', 'IN PROGRESS'])   // ✅ safer than .not in
+      .in('status', ['NEW', 'IN PROGRESS'])
       .maybeSingle();
 
     if (checkError) {
@@ -40,10 +44,7 @@ export async function GET(
     if (ticketToFail) {
       const { data: updated, error: updateError } = await supabaseAdmin
         .from('tickets')
-        .update({
-          status: 'FAILED',
-          failed_at: now
-        })
+        .update({ status: 'FAILED', failed_at: now })
         .eq('id', id)
         .select('id')
         .single();
@@ -74,7 +75,6 @@ export async function GET(
       }
     }
 
-    // 🔎 Fetch updated ticket
     const { data, error } = await supabaseAdmin
       .from('tickets')
       .select(`
@@ -101,7 +101,6 @@ export async function PATCH(
   try {
     const { id } = await params;
     
-    // Auth Check
     const cookieStore = await cookies();
     const userRole = cookieStore.get('user_role')?.value;
     const userId = cookieStore.get('user_id')?.value;
@@ -133,7 +132,6 @@ export async function PATCH(
 
     const body = await request.json();
     
-    // Extract all editable fields (ADDED ai_solution here)
     const { 
       title, 
       description, 
@@ -146,79 +144,74 @@ export async function PATCH(
       ai_solution
     } = body;
 
-    // Start with the updated_at timestamp
     const updates: any = { updated_at: new Date().toISOString() };
     
-    // Conditionally add fields to the update object if they exist in the request
     if (title !== undefined) updates.title = title;
     if (description !== undefined) updates.description = description;
     if (status !== undefined) updates.status = status;
     if (priority) updates.priority = priority;
     if (category) updates.category = category;
-
-    if (failure_reason !== undefined) {
-      updates.failure_reason = failure_reason;
-    }
-    
-    // ADDED ai_solution to the database update payload
-    if (ai_solution !== undefined) {
-      updates.ai_solution = ai_solution;
-    }
-
-    // Handle Deadline (Allow null to clear it)
+    if (failure_reason !== undefined) updates.failure_reason = failure_reason;
+    if (ai_solution !== undefined) updates.ai_solution = ai_solution;
     if (deadline !== undefined) updates.deadline = deadline;
     
-    // Handle Assignee (Allow null to unassign)
     if (assigned_to === '') {
-        updates.assigned_to = null;
+      updates.assigned_to = null;
     } else if (assigned_to) {
-        updates.assigned_to = assigned_to;
+      updates.assigned_to = assigned_to;
     }
 
-    // Perform the update
+    // Fetch actor name for email (the admin/assignee making the change)
+    const { data: actorUser } = await supabaseAdmin
+      .from('users')
+      .select('full_name')
+      .eq('id', userId!)
+      .single();
+    const actorName = actorUser?.full_name || 'Support Team';
+
     const { data: ticket, error } = await supabaseAdmin
       .from('tickets')
       .update(updates)
       .eq('id', id)
       .select(`
         *,
-        created_by_user:users!tickets_created_by_fkey(email, full_name),
-        assigned_to_user:users!tickets_assigned_to_fkey(email, full_name)
+        created_by_user:users!tickets_created_by_fkey(id, email, full_name, role),
+        assigned_to_user:users!tickets_assigned_to_fkey(id, email, full_name, role)
       `)
       .single();
 
-      if (error) throw error;
+    if (error) throw error;
       
-      if (status === 'SOLVED') {
-        const { data: existing } = await supabaseAdmin
-          .from('comments')
-          .select('id')
-          .eq('ticket_id', id)
-          .eq('type', 'final_resolution')
-          .maybeSingle();
+    if (status === 'SOLVED') {
+      const { data: existing } = await supabaseAdmin
+        .from('comments')
+        .select('id')
+        .eq('ticket_id', id)
+        .eq('type', 'final_resolution')
+        .maybeSingle();
 
-          if (!existing) {
-            await supabaseAdmin.from('comments').insert({
-              ticket_id: id,
-              content: ai_solution ? `Final Resolution: ${ai_solution}` : 'Final Resolution: This issue has been resolved.',
-              type: 'final_resolution',
-              is_internal: false,
-              created_by: userId,
-              created_at: new Date().toISOString()
-            });
-          }
-        }
-        
-      if (status === 'FAILED') {
+      if (!existing) {
         await supabaseAdmin.from('comments').insert({
           ticket_id: id,
-          content: `Failure Reason: ${failure_reason}`,
-          type: 'failure_reason',
+          content: ai_solution ? `Final Resolution: ${ai_solution}` : 'Final Resolution: This issue has been resolved.',
+          type: 'final_resolution',
           is_internal: false,
           created_by: userId,
           created_at: new Date().toISOString()
         });
       }
+    }
+      
+    if (status === 'FAILED') {
+      await supabaseAdmin.from('comments').insert({
+        ticket_id: id,
+        content: `Failure Reason: ${failure_reason}`,
+        type: 'failure_reason',
+        is_internal: false,
+        created_by: userId,
+        created_at: new Date().toISOString()
+      });
+    }
 
     // AUDIT LOG
     const auditActions: string[] = [];
@@ -238,26 +231,39 @@ export async function PATCH(
       );
     }
 
-    // EMAIL NOTIFICATION LOGIC (Fire & Forget)
+    // EMAIL NOTIFICATIONS (Fire & Forget)
     const triggerEmails = async () => {
+      // Status-specific emails
+      if (status !== undefined && status !== existingTicket.status) {
         if (status === 'SOLVED') {
-            await sendTicketNotification('SOLVED', ticket);
+          await sendTicketNotification('SOLVED', ticket, actorName);
+        } else if (status === 'FAILED') {
+          await sendTicketNotification('FAILED', ticket, actorName);
+        } else if (status === 'MERGED') {
+          await sendTicketNotification('MERGED', ticket, actorName);
+        } else {
+          // NEW, IN_PROGRESS, or any other status change → notify user
+          await sendTicketStatusUpdate(ticket, status, actorName);
         }
-        if (status === 'FAILED') {
-            await sendTicketNotification('FAILED', ticket);
-        }
-        if (status === 'MERGED') {
-            await sendTicketNotification('MERGED', ticket);
-        }
-        if (deadline && deadline !== '') {
-             await sendTicketNotification('DEADLINE', ticket);
-        }
-        if (assigned_to && ticket.assigned_to_user) {
-             await sendTicketNotification('ASSIGNED', ticket);
-        }
+      }
+
+      // Priority changed → notify user
+      if (priority !== undefined) {
+        await sendTicketPriorityUpdate(ticket, priority, actorName);
+      }
+
+      // Deadline updated → notify user
+      if (deadline && deadline !== '') {
+        await sendTicketNotification('DEADLINE', ticket, actorName);
+      }
+
+      // Assigned → notify user + staff
+      if (assigned_to && ticket.assigned_to_user) {
+        await sendTicketNotification('ASSIGNED', ticket, actorName);
+      }
     };
 
-    triggerEmails(); 
+    triggerEmails().catch((err) => console.error('[Email Error]', err));
 
     return NextResponse.json({ success: true, ticket });
 

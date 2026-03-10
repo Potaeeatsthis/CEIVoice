@@ -26,7 +26,6 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
     if (!userId) return;
     const { data, error } = await supabaseBrowser.rpc('get_unread_stats', { current_user_id: userId });
     if (data && !error) {
-      // Count the number of TICKETS with unread messages, not total comment count
       const total = data.filter((item: any) => (item.unread_count || 0) > 0).length;
       setTotalUnread(total);
     }
@@ -118,7 +117,6 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {isAdmin    && <AdminMenu    pathname={pathname} totalUnread={totalUnread} draftCount={draftCount} />}
           {isAssignee && <AssigneeMenu pathname={pathname} totalUnread={totalUnread} />}
-          { /* isAssignee && <PersonalMenu pathname={pathname} /> */ }
           {isUser && (
             <Suspense fallback={<UserMenu pathname={pathname} totalUnread={totalUnread} refParam={null} />}>
               <UserMenuWrapper pathname={pathname} totalUnread={totalUnread} />
@@ -129,7 +127,6 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
         {/* Profile footer */}
         <div className="p-3 border-t border-zinc-800 bg-zinc-900/30">
           <div className="flex items-center gap-1">
-            {/* Profile button */}
             <button
               onClick={() => userId && setProfileOpen(true)}
               disabled={!userId}
@@ -148,8 +145,6 @@ export default function Sidebar({ userId, userRole, userInitial, userName }: { u
                 <p className="text-xs text-zinc-500 truncate capitalize">{userRole.toLowerCase()}</p>
               </div>
             </button>
-
-            {/* Logout button */}
             {userId && <LogoutButton />}
           </div>
         </div>
@@ -257,20 +252,6 @@ function AssigneeMenu({ pathname, totalUnread }: { pathname: string, totalUnread
   );
 }
 
-//function PersonalMenu({ pathname }: { pathname: string }) {
-//return (
-//    <div className="space-y-1">
-//      <div className="px-3 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Personal</div>
-//      <SidebarLink href="/tickets" label="My Tickets" currentPath={pathname}
-//        icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>}
-//      />
-//     <SidebarLink href="/tickets/create" label="New Request" currentPath={pathname}
-//        icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>}
-//      />
-//    </div>
-//  );
-//}
-
 // ── User ───────────────────────────────────────────────────────────────────────
 
 function UserMenuWrapper({ pathname, totalUnread }: { pathname: string; totalUnread: number }) {
@@ -289,7 +270,6 @@ function UserMenu({ pathname, totalUnread, refParam }: { pathname: string; total
       <div className="mb-6 space-y-1">
         <div className="px-3 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Community</div>
 
-        {/* Public Feed (was "Tickets") */}
         <SidebarLink
           href="/user/community"
           label="Public Feed"
@@ -318,7 +298,6 @@ function UserMenu({ pathname, totalUnread, refParam }: { pathname: string; total
       <div className="space-y-1">
         <div className="px-3 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Personal</div>
 
-        {/* My Tickets (was "Tickets") */}
         <SidebarLink
           href="/tickets"
           label="My Tickets"
@@ -332,7 +311,6 @@ function UserMenu({ pathname, totalUnread, refParam }: { pathname: string; total
           }
         />
 
-        {/* New Request (was "Upload") */}
         <SidebarLink
           href="/tickets/create"
           label="New Request"
@@ -340,6 +318,18 @@ function UserMenu({ pathname, totalUnread, refParam }: { pathname: string; total
           icon={
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+            </svg>
+          }
+        />
+
+        {/* Activity Log */}
+        <SidebarLink
+          href="/user/history"
+          label="Activity Log"
+          currentPath={pathname}
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           }
         />

@@ -1,3 +1,4 @@
+// src/app/api/tickets/route.ts 
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { publishToQueue } from '@/lib/rabbitmq';

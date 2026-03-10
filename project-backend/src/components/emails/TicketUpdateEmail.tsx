@@ -24,7 +24,9 @@ type TicketUpdateEmailProps = {
     | 'DEADLINE'
     | 'ASSIGNED'
     | 'ASSIGNED_STAFF'
-    | 'REASSIGNED_STAFF';
+    | 'REASSIGNED_STAFF'
+    | 'STATUS_CHANGED'
+    | 'PRIORITY_CHANGED';
   newValue?: string;
   link: string;
 };
@@ -39,34 +41,55 @@ export default function TicketUpdateEmail({
   link,
 }: TicketUpdateEmailProps) {
   const previews: Record<string, string> = {
-    SOLVED: 'Your ticket has been solved',
-    FAILED: 'Your ticket has been marked as failed',
-    MERGED: 'Your ticket has been merged',
-    DEADLINE: 'Ticket deadline updated',
-    ASSIGNED: 'Your ticket has been assigned',
-    ASSIGNED_STAFF: 'You have been assigned a ticket',
+    SOLVED:           'Your ticket has been solved',
+    FAILED:           'Your ticket has been marked as failed',
+    MERGED:           'Your ticket has been merged',
+    DEADLINE:         'Ticket deadline updated',
+    ASSIGNED:         'Your ticket has been assigned',
+    ASSIGNED_STAFF:   'You have been assigned a ticket',
     REASSIGNED_STAFF: 'A ticket has been reassigned to you',
+    STATUS_CHANGED:   `Your ticket status has been updated to ${newValue}`,
+    PRIORITY_CHANGED: `Your ticket priority has been updated to ${newValue}`,
   };
 
   const headings: Record<string, string> = {
-    SOLVED: 'Ticket Solved',
-    FAILED: 'Ticket Marked as Failed',
-    MERGED: 'Ticket Merged',
-    DEADLINE: 'Deadline Updated',
-    ASSIGNED: 'Ticket Assigned',
-    ASSIGNED_STAFF: 'New Ticket Assigned',
+    SOLVED:           'Ticket Solved',
+    FAILED:           'Ticket Marked as Failed',
+    MERGED:           'Ticket Merged',
+    DEADLINE:         'Deadline Updated',
+    ASSIGNED:         'Ticket Assigned',
+    ASSIGNED_STAFF:   'New Ticket Assigned',
     REASSIGNED_STAFF: 'Ticket Reassigned',
+    STATUS_CHANGED:   'Ticket Status Updated',
+    PRIORITY_CHANGED: 'Ticket Priority Updated',
   };
 
   const descriptions: Record<string, string> = {
-    SOLVED: `${actorName} marked this ticket as solved.`,
-    FAILED: `${actorName} marked this ticket as failed.`,
-    MERGED: `${actorName} merged this ticket.`,
-    DEADLINE: `The deadline has been updated to ${newValue}.`,
-    ASSIGNED: `Your ticket has been assigned to ${newValue}.`,
-    ASSIGNED_STAFF: 'You are now responsible for this ticket.',
+    SOLVED:           `${actorName} marked this ticket as solved.`,
+    FAILED:           `${actorName} marked this ticket as failed.`,
+    MERGED:           `${actorName} merged this ticket.`,
+    DEADLINE:         `The deadline has been updated to ${newValue}.`,
+    ASSIGNED:         `Your ticket has been assigned to ${newValue}.`,
+    ASSIGNED_STAFF:   'You are now responsible for this ticket.',
     REASSIGNED_STAFF: 'This ticket has been reassigned to you.',
+    STATUS_CHANGED:   `${actorName} updated your ticket status to ${newValue}.`,
+    PRIORITY_CHANGED: `${actorName} updated your ticket priority to ${newValue}.`,
   };
+
+  // Badge color per type
+  const badgeColors: Record<string, { bg: string; text: string }> = {
+    SOLVED:           { bg: '#004d28', text: '#00e676' },
+    FAILED:           { bg: '#4d0000', text: '#ff5252' },
+    MERGED:           { bg: '#1a2e4d', text: '#448aff' },
+    DEADLINE:         { bg: '#4d3800', text: '#ffd740' },
+    ASSIGNED:         { bg: '#004d28', text: '#00e676' },
+    ASSIGNED_STAFF:   { bg: '#004d28', text: '#00e676' },
+    REASSIGNED_STAFF: { bg: '#1a2e4d', text: '#448aff' },
+    STATUS_CHANGED:   { bg: '#1a2e4d', text: '#448aff' },
+    PRIORITY_CHANGED: { bg: '#4d3800', text: '#ffd740' },
+  };
+
+  const badgeColor = badgeColors[type] || { bg: '#004d28', text: '#00e676' };
 
   return (
     <Html>
@@ -80,20 +103,36 @@ export default function TicketUpdateEmail({
           </Section>
 
           <Section style={body}>
-            <Text style={badge}>{type.replace('_', ' ')}</Text>
+            <Text style={{
+              ...badge,
+              backgroundColor: badgeColor.bg,
+              color: badgeColor.text,
+            }}>
+              {type.replace(/_/g, ' ')}
+            </Text>
 
             <Heading style={title}>{headings[type]}</Heading>
 
             <Text style={text}>Hello {recipientName},</Text>
-
             <Text style={text}>{descriptions[type]}</Text>
 
             <Section style={detailsBox}>
               <Text style={detailLabel}>TICKET ID</Text>
               <Text style={detailValue}>#{ticketId}</Text>
-              
+
               <Text style={detailLabel}>SUBJECT</Text>
               <Text style={detailValueLast}>{ticketTitle || `Ticket #${ticketId}`}</Text>
+
+              {newValue && (type === 'STATUS_CHANGED' || type === 'PRIORITY_CHANGED') && (
+                <>
+                  <Text style={{ ...detailLabel, marginTop: '20px' }}>
+                    {type === 'STATUS_CHANGED' ? 'NEW STATUS' : 'NEW PRIORITY'}
+                  </Text>
+                  <Text style={{ ...detailValueLast, color: badgeColor.text, fontWeight: 'bold' }}>
+                    {newValue}
+                  </Text>
+                </>
+              )}
             </Section>
 
             <Section style={{ marginTop: '24px', marginBottom: '32px' }}>
