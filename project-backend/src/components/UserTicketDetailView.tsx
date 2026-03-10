@@ -3,6 +3,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import { toast } from 'sonner';
 
@@ -10,7 +11,7 @@ type Comment = {
   id: string;
   user_id: string;
   message?: string;
-  content?: string; 
+  content?: string;
   created_at: string;
   is_internal: boolean;
   attachments?: string[];
@@ -35,8 +36,9 @@ type Props = {
   ticket: Ticket;
   initialComments: Comment[];
   currentUser: { id: string; name: string };
-  isOwner: boolean; 
+  isOwner: boolean;
   isFollowing?: boolean;
+  isGuest?: boolean;
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -62,18 +64,13 @@ const PRIORITY_TEXT: Record<string, string> = {
   LOW:    'text-emerald-400',
 };
 
-// Helper for rendering attachments identically to the admin view
 function AttachmentPreview({ url }: { url: string }) {
   const isImage = url.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null;
 
   if (isImage) {
     return (
       <a href={url} target="_blank" rel="noopener noreferrer" className="block mt-2">
-        <img
-          src={url}
-          alt="attachment"
-          className="max-h-48 rounded-lg border border-zinc-700 hover:border-zinc-500 transition-colors"
-        />
+        <img src={url} alt="attachment" className="max-h-48 rounded-lg border border-zinc-700 hover:border-zinc-500 transition-colors" />
       </a>
     );
   }
@@ -88,7 +85,7 @@ function AttachmentPreview({ url }: { url: string }) {
   );
 }
 
-export default function UserTicketDetailView({ ticket, initialComments, currentUser, isOwner, isFollowing }: Props) {
+export default function UserTicketDetailView({ ticket, initialComments, currentUser, isOwner, isFollowing, isGuest = false }: Props) {
   const bottomRef    = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef  = useRef<HTMLTextAreaElement>(null);
@@ -99,34 +96,29 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
   const [sending,   setSending]   = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const canComment = isOwner || isFollowing;
+  const canComment = !isGuest && (isOwner || isFollowing);
 
-  // ── Mark ticket as read on open ────────────────────────────────────────────
   useEffect(() => {
+    if (isGuest) return;
     const markAsRead = async () => {
       if (!ticket.id || !currentUser.id) return;
       try {
         const res = await fetch(`/api/tickets/${ticket.id}/read`, { method: 'POST' });
-        if (!res.ok) {
-          console.error('Failed to mark ticket as read:', await res.text());
-        } else {
-          setTimeout(() => {
-            window.dispatchEvent(new Event('refresh-unread-stats'));
-          }, 300);
+        if (res.ok) {
+          setTimeout(() => window.dispatchEvent(new Event('refresh-unread-stats')), 300);
         }
       } catch (err) {
         console.error('Failed to mark ticket as read:', err);
       }
     };
     markAsRead();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticket.id, currentUser.id]);
 
-  // ── Scroll to bottom on new comment ───────────────────────────────────────
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [comments]);
 
-  // ── Auto-resize textarea ───────────────────────────────────────────────────
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -134,99 +126,51 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
     ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`;
   }, [text]);
 
-  // ── Real-time comment listener ─────────────────────────────────────────────
   useEffect(() => {
+    if (isGuest) return;
     const channel = supabaseBrowser
       .channel(`ticket-comments-${ticket.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event:  'INSERT',
-          schema: 'public',
-          table:  'comments',
-          filter: `ticket_id=eq.${ticket.id}`,
-        },
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments', filter: `ticket_id=eq.${ticket.id}` },
         async (payload) => {
           const newComment = payload.new as any;
           if (newComment.is_internal) return;
-
-          const { data: userData } = await supabaseBrowser
-            .from('users')
-            .select('full_name')
-            .eq('id', newComment.user_id)
-            .single();
-
+          const { data: userData } = await supabaseBrowser.from('users').select('full_name').eq('id', newComment.user_id).single();
           setComments((prev) => {
             if (prev.some((c) => c.id === newComment.id)) return prev;
-            return [
-              ...prev,
-              {
-                ...newComment,
-                user: { full_name: userData?.full_name || 'Support' },
-              },
-            ];
+            return [...prev, { ...newComment, user: { full_name: userData?.full_name || 'Support' } }];
           });
         }
-      )
-      .subscribe();
-
+      ).subscribe();
     return () => { supabaseBrowser.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticket.id]);
 
-  // ── File upload to Supabase storage ───────────────────────────────────────
   const uploadFile = async (file: File): Promise<string> => {
     const ext      = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
     const filePath = `ticket-uploads/${fileName}`;
-
-    const { error } = await supabaseBrowser.storage
-      .from('ticket-attachments')
-      .upload(filePath, file);
-
+    const { error } = await supabaseBrowser.storage.from('ticket-attachments').upload(filePath, file);
     if (error) throw error;
-
-    const { data } = supabaseBrowser.storage
-      .from('ticket-attachments')
-      .getPublicUrl(filePath);
-
+    const { data } = supabaseBrowser.storage.from('ticket-attachments').getPublicUrl(filePath);
     return data.publicUrl;
   };
 
-  // ── Send comment ───────────────────────────────────────────────────────────
   const handleSend = async () => {
     if (!text.trim() && files.length === 0) return;
-
     setSending(true);
     try {
       let attachmentUrls: string[] = [];
-
       if (files.length > 0) {
         setUploading(true);
         attachmentUrls = await Promise.all(files.map(uploadFile));
         setUploading(false);
       }
-
-      const payload: any = {
-        message: text.trim(),
-        content: text.trim(),
-        is_internal: false,
-      };
-
-      if (attachmentUrls.length > 0) {
-        payload.attachments = attachmentUrls;
-      }
-
+      const payload: any = { message: text.trim(), content: text.trim(), is_internal: false };
+      if (attachmentUrls.length > 0) payload.attachments = attachmentUrls;
       const res = await fetch(`/api/tickets/${ticket.id}/comments`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(payload),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to send');
-      }
-
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to send'); }
       setText('');
       setFiles([]);
     } catch (err: any) {
@@ -238,21 +182,18 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
   const publicComments = comments.filter((c) => !c.is_internal);
   const priorityLevel = { URGENT: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }[ticket.priority] ?? 1;
 
   return (
-    <div className="flex gap-6 h-[calc(100vh-140px)]">
+    <div className="flex gap-6 h-full min-h-0">
 
-      {/* ── Left: Chat ─────────────────────────────────────────────────────── */}
+      {/* ── Left: Chat ── */}
       <div className="flex-1 flex flex-col min-h-0 rounded-xl border border-zinc-800 bg-zinc-950 shadow-sm overflow-hidden">
-        
+
         {/* Header */}
         <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm z-10">
           <h2 className="text-lg font-semibold text-white truncate">{ticket.title || 'Untitled Ticket'}</h2>
@@ -260,19 +201,16 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
             <span>Requested by {ticket.created_by_user?.full_name || 'User'}</span>
             <span>•</span>
             <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
-            {!isOwner && (
-              <>
-                <span>•</span>
-                <span className="px-1.5 py-0.5 rounded-sm bg-zinc-800 text-zinc-300 text-[10px] uppercase tracking-wide">Community</span>
-              </>
+            {!isOwner && !isGuest && (
+              <><span>•</span><span className="px-1.5 py-0.5 rounded-sm bg-zinc-800 text-zinc-300 text-[10px] uppercase tracking-wide">Community</span></>
             )}
           </div>
         </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-black/20 min-h-0">
-          
-          {/* ORIGINAL REQUEST */}
+
+          {/* Original request */}
           <div className={`flex gap-3 ${isOwner ? 'flex-row-reverse' : 'flex-row'}`}>
             <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border ${isOwner ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'}`}>
               {ticket.created_by_user?.full_name?.charAt(0).toUpperCase() || 'U'}
@@ -284,9 +222,7 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
               </div>
               <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-2xl px-4 py-3 text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap ${isOwner ? 'rounded-tr-none' : 'rounded-tl-none'}`}>
                 {ticket.description}
-                {ticket.img && ticket.img.map((url, idx) => (
-                  <AttachmentPreview key={idx} url={url} />
-                ))}
+                {ticket.img && ticket.img.map((url, idx) => <AttachmentPreview key={idx} url={url} />)}
               </div>
             </div>
           </div>
@@ -298,41 +234,28 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
               <div className="flex-grow border-t border-zinc-800" />
             </div>
           )}
-          
+
           {publicComments.map((comment) => {
             const isMine = comment.user_id === currentUser.id;
-            const displayMessage = comment.message || comment.content; 
-            
+            const displayMessage = comment.message || comment.content;
             return (
               <div key={comment.id} className={`flex gap-3 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
-                {/* Avatar */}
-                <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border
-                  ${isMine ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-zinc-700 text-zinc-300 border-zinc-600'}`}>
+                <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border ${isMine ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-zinc-700 text-zinc-300 border-zinc-600'}`}>
                   {comment.user?.full_name?.charAt(0).toUpperCase() ?? '?'}
                 </div>
-
-                {/* Bubble Container */}
                 <div className={`flex flex-col max-w-[75%] ${isMine ? 'items-end' : 'items-start'}`}>
                   <div className="flex items-center gap-2 mb-1 px-1">
                     {!isMine && <span className="text-xs font-medium text-zinc-400">{comment.user?.full_name ?? 'Support'}</span>}
-                    <span className="text-[10px] text-zinc-600">
-                      {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    <span className="text-[10px] text-zinc-600">{new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
-
                   {displayMessage && displayMessage.trim().length > 0 && (
-                    <div className={`px-4 py-2.5 shadow-sm text-sm whitespace-pre-wrap break-words border 
-                      ${isMine ? 'bg-zinc-900 border-zinc-800 text-zinc-300 rounded-2xl rounded-tr-none' : 'bg-zinc-700 border-zinc-600 text-white rounded-2xl rounded-tl-none'}`}>
+                    <div className={`px-4 py-2.5 shadow-sm text-sm whitespace-pre-wrap break-words border ${isMine ? 'bg-zinc-900 border-zinc-800 text-zinc-300 rounded-2xl rounded-tr-none' : 'bg-zinc-700 border-zinc-600 text-white rounded-2xl rounded-tl-none'}`}>
                       {displayMessage}
                     </div>
                   )}
-
-                  {/* Attachments */}
                   {comment.attachments && comment.attachments.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-1">
-                      {comment.attachments.map((url, i) => (
-                        <AttachmentPreview key={i} url={url} />
-                      ))}
+                      {comment.attachments.map((url, i) => <AttachmentPreview key={i} url={url} />)}
                     </div>
                   )}
                 </div>
@@ -342,80 +265,72 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
-        <div className="p-4 bg-zinc-900/30 border-t border-zinc-800">
-          {files.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-2">
-              {files.map((f, i) => (
-                <div key={i} className="flex items-center gap-2 bg-zinc-800 px-3 py-1 rounded-full text-xs text-zinc-300 border border-zinc-700 animate-in zoom-in duration-200">
-                  <span className="truncate max-w-[150px]">{f.name}</span>
-                  <button type="button" onClick={() => setFiles((p) => p.filter((_, j) => j !== i))}
-                    className="text-zinc-500 hover:text-white">✕</button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="relative flex gap-2 items-end">
-            <input ref={fileInputRef} type="file" className="hidden" multiple
-              accept=".pdf,.jpg,.jpeg,.png,.webp"
-              onChange={(e) => {
-                if (e.target.files) setFiles((p) => [...p, ...Array.from(e.target.files!)]);
-              }}
-            />
-
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={!canComment}
-              className="p-3 bg-zinc-900 border border-zinc-700 rounded-xl text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors h-[46px] disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Attach file"
+        {/* Input area — guest sees sign-in prompt, others see message box */}
+        {isGuest ? (
+          <div className="p-4 bg-zinc-900/30 border-t border-zinc-800 flex items-center justify-between gap-4">
+            <p className="text-sm text-zinc-500">Sign in to reply to this ticket and receive updates.</p>
+            <Link
+              href={`/login?redirect=/tickets/${ticket.id}`}
+              className="flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-              </svg>
-            </button>
+              Sign In to Reply
+            </Link>
+          </div>
+        ) : (
+          <div className="p-4 bg-zinc-900/30 border-t border-zinc-800">
+            {files.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {files.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 bg-zinc-800 px-3 py-1 rounded-full text-xs text-zinc-300 border border-zinc-700 animate-in zoom-in duration-200">
+                    <span className="truncate max-w-[150px]">{f.name}</span>
+                    <button type="button" onClick={() => setFiles((p) => p.filter((_, j) => j !== i))} className="text-zinc-500 hover:text-white">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
 
-            <div className="relative flex-1">
-              <textarea
-                ref={textareaRef}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={!canComment}
-                placeholder={canComment ? "Type your message..." : "Follow this ticket to join the conversation."}
-                rows={1}
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-xl pl-4 pr-12 py-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-500/50 focus:border-zinc-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                style={{ minHeight: '46px', maxHeight: '160px' }}
+            <div className="relative flex gap-2 items-end">
+              <input ref={fileInputRef} type="file" className="hidden" multiple accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={(e) => { if (e.target.files) setFiles((p) => [...p, ...Array.from(e.target.files!)]); }}
               />
-              
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={sending || (!text.trim() && files.length === 0) || !canComment}
-                className="absolute right-2 bottom-2 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-              >
-                {sending || uploading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-                  </svg>
-                )}
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={!canComment}
+                className="p-3 bg-zinc-900 border border-zinc-700 rounded-xl text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors h-[46px] disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
               </button>
+
+              <div className="relative flex-1">
+                <textarea ref={textareaRef} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={handleKeyDown}
+                  disabled={!canComment}
+                  placeholder={canComment ? "Type your message..." : "Follow this ticket to join the conversation."}
+                  rows={1}
+                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl pl-4 pr-12 py-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-500/50 focus:border-zinc-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  style={{ minHeight: '46px', maxHeight: '160px' }}
+                />
+                <button type="button" onClick={handleSend} disabled={sending || (!text.trim() && files.length === 0) || !canComment}
+                  className="absolute right-2 bottom-2 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all">
+                  {sending || uploading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center mt-2 pl-[52px]">
+              <div className="text-[10px] text-zinc-600">Press <span className="font-mono text-zinc-500">Enter</span> to send</div>
             </div>
           </div>
-
-          <div className="flex justify-between items-center mt-2 pl-[52px]">
-            <div className="text-[10px] text-zinc-600">Press <span className="font-mono text-zinc-500">Enter</span> to send</div>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* ── Right: Info panel ──────────────────────────────────────────────── */}
+      {/* ── Right: Info panel ── */}
       <div className="w-80 flex-shrink-0 space-y-4 overflow-y-auto">
 
-        {/* Status & Priority */}
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-4">
           <div>
             <span className="block text-[10px] uppercase tracking-wider text-zinc-600 mb-1.5">Status</span>
@@ -432,9 +347,7 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
                   <div key={i} className={`w-1.5 h-1.5 rounded-full ${i <= priorityLevel ? PRIORITY_DOT[ticket.priority] : 'bg-zinc-800'}`} />
                 ))}
               </div>
-              <span className={`text-xs font-semibold ${PRIORITY_TEXT[ticket.priority]}`}>
-                {ticket.priority}
-              </span>
+              <span className={`text-xs font-semibold ${PRIORITY_TEXT[ticket.priority]}`}>{ticket.priority}</span>
             </div>
           </div>
 
@@ -460,15 +373,11 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
           )}
         </div>
 
-        {/* Description */}
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
           <span className="block text-[10px] uppercase tracking-wider text-zinc-600 mb-2">Description</span>
-          <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap break-words">
-            {ticket.description}
-          </p>
+          <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap break-words">{ticket.description}</p>
         </div>
 
-        {/* Ticket images */}
         {ticket.img && ticket.img.length > 0 && (
           <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
             <span className="block text-[10px] uppercase tracking-wider text-zinc-600 mb-2">Attachments</span>
@@ -493,7 +402,6 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
           </div>
         )}
 
-        {/* AI Solution */}
         {ticket.ai_solution && (
           <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/20 p-4">
             <div className="flex items-center gap-1.5 mb-2">
@@ -506,23 +414,18 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
           </div>
         )}
 
-        {/* Quick actions */}
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
           <span className="block text-[10px] uppercase tracking-wider text-zinc-600 mb-2">Quick Actions</span>
           <div className="space-y-1">
-            <button
-              onClick={() => { navigator.clipboard.writeText(String(ticket.id)); toast.success('Ticket ID copied'); }}
-              className="w-full text-left px-3 py-2 text-xs text-zinc-400 hover:text-white hover:bg-zinc-800/60 rounded-lg transition-colors flex items-center gap-2"
-            >
+            <button onClick={() => { navigator.clipboard.writeText(String(ticket.id)); toast.success('Ticket ID copied'); }}
+              className="w-full text-left px-3 py-2 text-xs text-zinc-400 hover:text-white hover:bg-zinc-800/60 rounded-lg transition-colors flex items-center gap-2">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
               Copy Ticket ID
             </button>
-            <button
-              onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success('Link copied'); }}
-              className="w-full text-left px-3 py-2 text-xs text-zinc-400 hover:text-white hover:bg-zinc-800/60 rounded-lg transition-colors flex items-center gap-2"
-            >
+            <button onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success('Link copied'); }}
+              className="w-full text-left px-3 py-2 text-xs text-zinc-400 hover:text-white hover:bg-zinc-800/60 rounded-lg transition-colors flex items-center gap-2">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
@@ -531,11 +434,9 @@ export default function UserTicketDetailView({ ticket, initialComments, currentU
           </div>
         </div>
       </div>
-    </div> 
+    </div>
   );
 }
-
-// ── Deadline display helper ────────────────────────────────────────────────────
 
 function DeadlineDisplay({ deadline }: { deadline: string }) {
   const now      = new Date(); now.setHours(0,0,0,0);
@@ -544,12 +445,9 @@ function DeadlineDisplay({ deadline }: { deadline: string }) {
 
   const label = diffDays < 0
     ? <span className="text-red-400 font-medium">Overdue</span>
-    : diffDays === 0
-    ? <span className="text-amber-400 font-medium">Due today</span>
-    : diffDays === 1
-    ? <span className="text-amber-400 font-medium">Due tomorrow</span>
-    : diffDays < 7
-    ? <span className="text-amber-400 font-medium">{diffDays} days left</span>
+    : diffDays === 0 ? <span className="text-amber-400 font-medium">Due today</span>
+    : diffDays === 1 ? <span className="text-amber-400 font-medium">Due tomorrow</span>
+    : diffDays < 7  ? <span className="text-amber-400 font-medium">{diffDays} days left</span>
     : <span className="text-zinc-300">{diffDays} days left</span>;
 
   return (

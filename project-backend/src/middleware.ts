@@ -22,6 +22,11 @@ function addCors(response: NextResponse) {
   return response;
 }
 
+// Match /tickets/[id] — a specific ticket, not the list
+function isSpecificTicketPage(pathname: string): boolean {
+  return /^\/tickets\/\d+/.test(pathname);
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -47,8 +52,26 @@ export async function middleware(request: NextRequest) {
     return addCors(NextResponse.next());
   }
 
-  // Route staff away from user-facing pages
-  if (pathname.startsWith('/tickets')) {
+  // /tickets/[id] — allow guests through (read-only guest view handled in page)
+  // but redirect staff to their own views
+  if (isSpecificTicketPage(pathname)) {
+    if (hasToken && userRole === 'ADMIN') {
+      const id = pathname.split('/')[2];
+      return NextResponse.redirect(new URL(`/admin/tickets/${id}`, request.url));
+    }
+    if (hasToken && userRole === 'ASSIGNEE') {
+      const id = pathname.split('/')[2];
+      return NextResponse.redirect(new URL(`/assignee/tickets/${id}`, request.url));
+    }
+    // Guests (no token) and USER role — let through
+    return addCors(NextResponse.next());
+  }
+
+  // /tickets (list page) — must be logged in as USER
+  if (pathname === '/tickets' || pathname.startsWith('/tickets/create')) {
+    if (!hasToken) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
     if (userRole === 'ADMIN') {
       return NextResponse.redirect(new URL('/admin/tickets', request.url));
     }
@@ -90,7 +113,6 @@ export async function middleware(request: NextRequest) {
     return addCors(NextResponse.next());
   }
 
-  // Accept token from Authorization header OR cookie
   const authHeader = request.headers.get('authorization');
   const token =
     authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : request.cookies.get('token')?.value;
@@ -126,6 +148,7 @@ export const config = {
     '/admin/:path*',
     '/assignee/:path*',
     '/tickets/:path*',
+    '/tickets',
     '/user/:path*',
   ],
 };

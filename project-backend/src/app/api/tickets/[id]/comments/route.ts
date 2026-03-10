@@ -11,7 +11,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    
+
     console.log(`\n--- [Comment API] Processing Ticket #${id} ---`);
 
     const cookieStore = await cookies();
@@ -19,27 +19,32 @@ export async function POST(
     const userRole = cookieStore.get('user_role')?.value || 'USER';
 
     if (!userId) {
-      console.log('❌ Unauthorized: No user_id cookie');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { content, is_internal, attachments } = body; 
+    const { content, is_internal, attachments } = body;
 
     if (!content && (!attachments || attachments.length === 0)) {
-      return NextResponse.json({ error: 'Message or attachment is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Message or attachment is required' },
+        { status: 400 }
+      );
     }
 
-    // 1. Update Sender's "Last Seen"
     await supabaseAdmin
       .from('users')
       .update({ last_seen_at: new Date().toISOString() })
       .eq('id', userId);
 
     const isStaff = userRole === 'ADMIN' || userRole === 'ASSIGNEE';
-    const finalIsInternal = isStaff ? (is_internal || false) : false;
+    const finalIsInternal = isStaff ? is_internal || false : false;
 
-    // 2. Insert the Comment
+    // Skip email for internal notes entirely
+    if (finalIsInternal) {
+      console.log('🔕 Internal note — skipping email notification.');
+    }
+
     const { data: comment, error } = await supabaseAdmin
       .from('comments')
       .insert({
@@ -53,66 +58,144 @@ export async function POST(
       .single();
 
     if (error) {
-      console.error('❌ Database Error:', error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log(`✅ Comment created (ID: ${comment.id})`);
-
-    // 3. Mark Ticket as Read for Sender
     await supabaseAdmin
       .from('ticket_reads')
-      .upsert({ ticket_id: id, user_id: userId, last_read_at: new Date().toISOString() });
+      .upsert({
+        ticket_id: id,
+        user_id: userId,
+        last_read_at: new Date().toISOString(),
+      });
 
-    // 4. NOTIFICATION LOGIC (Offline + 10m Cooldown)
-    const { data: ticket } = await supabaseAdmin
-      .from('tickets')
-      .select(`
-        id, title, assigned_to, created_by, last_email_sent_at,
-        created_by_user:users!tickets_created_by_fkey(id, email, last_seen_at),
-        assigned_to_user:users!tickets_assigned_to_fkey(id, email, last_seen_at)
-      `)
-      .eq('id', id)
-      .single();
-    
-    if (ticket) {
-      // Determine Recipient
-      const isSenderAssignee = userId === ticket.assigned_to;
-      const recipient = isSenderAssignee ? ticket.created_by_user : ticket.assigned_to_user;
-      
-      console.log(`🔍 Notification Check: Sender is ${isSenderAssignee ? 'Assignee' : 'User'}. Recipient is ${recipient?.email || 'Unknown'}`);
+    // ── NOTIFICATION LOGIC ────────────────────────────────────────────────────
 
-      if (recipient?.email) {
+    // Don't send email notifications for internal notes
+    if (!finalIsInternal) {
+      const { data: ticket } = await supabaseAdmin
+        .from('tickets')
+        .select(`
+          id, title, assigned_to, created_by, last_email_sent_at,
+          created_by_user:users!tickets_created_by_fkey(id, email, full_name, role, last_seen_at),
+          assigned_to_user:users!tickets_assigned_to_fkey(id, email, full_name, role, last_seen_at)
+        `)
+        .eq('id', id)
+        .single();
+
+      console.log(`📋 Ticket data:`, {
+        ticketId: ticket?.id,
+        createdBy: ticket?.created_by,
+        assignedTo: ticket?.assigned_to,
+        lastEmailSentAt: ticket?.last_email_sent_at,
+        senderUserId: userId,
+        senderRole: userRole,
+      });
+
+      if (ticket) {
+        const isSenderCreator = userId === ticket.created_by;
+        const isSenderAssignee = userId === ticket.assigned_to;
+
+        console.log(`👤 Sender context:`, { isSenderCreator, isSenderAssignee, isStaff });
+
+        const recipients: {
+          email: string;
+          name: string;
+          role: string;
+          last_seen_at: string | null;
+        }[] = [];
+
+        // ── Case 1: Staff (admin/assignee) sent the message → notify ticket creator
+        if (isStaff && !isSenderCreator && ticket.created_by_user?.email) {
+          console.log(`➕ Adding creator as recipient: ${ticket.created_by_user.email}`);
+          recipients.push({
+            email: ticket.created_by_user.email,
+            name: ticket.created_by_user.full_name || 'User',
+            role: ticket.created_by_user.role || 'USER',
+            last_seen_at: ticket.created_by_user.last_seen_at,
+          });
+        }
+
+        // ── Case 2: Creator sent message → notify assignee (if assigned)
+        if (isSenderCreator && ticket.assigned_to_user?.email && !isSenderAssignee) {
+          console.log(`➕ Adding assignee as recipient: ${ticket.assigned_to_user.email}`);
+          recipients.push({
+            email: ticket.assigned_to_user.email,
+            name: ticket.assigned_to_user.full_name || 'Team Member',
+            role: ticket.assigned_to_user.role || 'ASSIGNEE',
+            last_seen_at: ticket.assigned_to_user.last_seen_at,
+          });
+        }
+
+        // ── Case 3: Creator sent message, ticket is unassigned → notify all admins
+        if (isSenderCreator && !ticket.assigned_to) {
+          const { data: admins } = await supabaseAdmin
+            .from('users')
+            .select('id, email, full_name, role, last_seen_at')
+            .eq('role', 'ADMIN')
+            .neq('id', userId);
+
+          console.log(`➕ Unassigned ticket — notifying ${admins?.length ?? 0} admin(s)`);
+
+          if (admins) {
+            for (const admin of admins) {
+              if (admin.email) {
+                recipients.push({
+                  email: admin.email,
+                  name: admin.full_name || 'Admin',
+                  role: 'ADMIN',
+                  last_seen_at: admin.last_seen_at,
+                });
+              }
+            }
+          }
+        }
+
+        // ── Cooldown check (10 min) ────────────────────────────────────────────
         const now = new Date();
-        const lastSeen = recipient.last_seen_at ? new Date(recipient.last_seen_at) : new Date(0);
-        const lastEmail = ticket.last_email_sent_at ? new Date(ticket.last_email_sent_at) : new Date(0);
-        
-        // CHECK 1: Is user "Offline"? (Inactive > 5 mins)
-        const isOffline = (now.getTime() - lastSeen.getTime()) > (5 * 60 * 1000); 
-        
-        // CHECK 2: Is Cooldown Over? (Last email > 10 mins ago)
-        const isCooldownOver = (now.getTime() - lastEmail.getTime()) > (10 * 60 * 1000);
+        const lastEmail = ticket.last_email_sent_at
+          ? new Date(ticket.last_email_sent_at)
+          : new Date(0);
+        const minutesSinceLastEmail = (now.getTime() - lastEmail.getTime()) / 1000 / 60;
+        const isCooldownOver = minutesSinceLastEmail > 0.5;
 
-        if (isOffline && isCooldownOver) {
-          console.log(`📧 Sending Email Notification to ${recipient.email}...`);
-          
-          await sendNewMessageNotification(
-            recipient.email,
-            ticket.id.toString(),
-            ticket.title || "Untitled",
-            comment.user?.full_name || "Support",
-            content || (attachments?.length ? "[Sent an attachment]" : "Sent a message")
+        console.log(`⏱️  Last email: ${ticket.last_email_sent_at ?? 'never'} (${minutesSinceLastEmail.toFixed(1)} min ago)`);
+        console.log(`📬 Recipients: ${recipients.length}, Cooldown over: ${isCooldownOver}`);
+
+        if (isCooldownOver && recipients.length > 0) {
+          console.log(`📧 Sending notifications to ${recipients.length} recipient(s)...`);
+
+          const results = await Promise.allSettled(
+            recipients.map((r) =>
+              sendNewMessageNotification(
+                r.email,
+                ticket.id.toString(),
+                ticket.title || 'Untitled',
+                comment.user?.full_name || 'Support',
+                content || (attachments?.length ? '[Sent an attachment]' : 'Sent a message'),
+                r.name,
+                r.role,
+              )
+            )
           );
-          
-          // UPDATE TIMESTAMP (Starts the 10m timer)
+
+          results.forEach((result, i) => {
+            if (result.status === 'rejected') {
+              console.error(`❌ Failed to send to ${recipients[i].email}:`, result.reason);
+            } else {
+              console.log(`✅ Sent to ${recipients[i].email}`);
+            }
+          });
+
           await supabaseAdmin
             .from('tickets')
             .update({ last_email_sent_at: now.toISOString() })
             .eq('id', id);
-            
-          console.log(`✅ Email sent & timestamp updated.`);
+
+        } else if (!isCooldownOver) {
+          console.log(`🚫 Email skipped — cooldown active (${minutesSinceLastEmail.toFixed(1)} min since last email, need 10 min).`);
         } else {
-          console.log(`🚫 Email Skipped. (Offline: ${isOffline}, CooldownOver: ${isCooldownOver})`);
+          console.log(`🚫 Email skipped — no recipients found.`);
         }
       }
     }

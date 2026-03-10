@@ -1,5 +1,7 @@
 // src/app/(dashboard)/layout.tsx
 
+export const dynamic = 'force-dynamic';
+
 import { cookies } from 'next/headers';
 import { verifyJWT } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
@@ -9,12 +11,11 @@ import GlobalNotificationListener from '@/components/GlobalNotificationListener'
 async function getUser() {
   const cookieStore = await cookies();
   const token = cookieStore.get('token')?.value;
-  const guestUser = { id: null, name: 'Guest User', role: 'USER', initial: 'G' };
 
-  if (!token) return guestUser;
+  if (!token) return null;
 
   const payload = await verifyJWT(token);
-  if (!payload) return guestUser;
+  if (!payload) return null;
 
   const { data: user, error } = await supabaseAdmin
     .from('users')
@@ -22,7 +23,7 @@ async function getUser() {
     .eq('id', payload.userId)
     .single();
 
-  if (error || !user) return guestUser;
+  if (error || !user) return null;
 
   return {
     id: user.id,
@@ -35,6 +36,33 @@ async function getUser() {
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser();
 
+  // Guest layout — no sidebar, fixed height, no scroll
+  if (!user) {
+    return (
+      <div className="flex flex-col h-screen bg-black text-zinc-100 font-sans selection:bg-purple-500/30 selection:text-purple-200">
+        {/* Minimal guest header */}
+        <div className="flex-shrink-0 border-b border-zinc-800 bg-zinc-950/50 px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-white tracking-tight">CEIVOICE</span>
+            <span className="text-xs text-zinc-600">HELP DESK</span>
+          </div>
+          <a
+            href="/login"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 transition-colors"
+          >
+            Sign In
+          </a>
+        </div>
+        <main className="flex-1 overflow-hidden">
+          <div className="h-full max-w-7xl mx-auto px-8 py-6 flex flex-col">
+            {children}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Authenticated layout — full sidebar
   return (
     <div className="flex h-screen bg-black text-zinc-100 font-sans selection:bg-purple-500/30 selection:text-purple-200">
       <Sidebar
@@ -43,10 +71,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         userInitial={user.initial}
         userName={user.name}
       />
-
-      <main className="flex-1 overflow-auto bg-black relative">
-        <div className="max-w-7xl mx-auto p-8">
-          {user.id && <GlobalNotificationListener userId={user.id} />}
+      <main className="flex-1 overflow-hidden bg-black relative flex flex-col">
+        <div className="flex-1 min-h-0 max-w-7xl w-full mx-auto p-8 flex flex-col">
+          <GlobalNotificationListener userId={user.id} />
           {children}
         </div>
       </main>

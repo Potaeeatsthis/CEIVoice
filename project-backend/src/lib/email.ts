@@ -259,7 +259,7 @@ export async function sendTicketCreatedEmail(
 ) {
   if (!process.env.RESEND_API_KEY) return;
 
-  const link = `${APP_URL}${ticketUrlForRole(userRole, ticketId)}`;
+  const link = ticketUrlForRole(userRole, ticketId);
 
   await resend.emails.send({
     from: 'CEiVoice Support <support@ceivoice.com>',
