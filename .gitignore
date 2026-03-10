@@ -1,9 +1,43 @@
+# Core files
 main.sql
 main.env
 package-lock.json
+
+# Test scripts
 test_listener.py
 test_rabbit.py
 
-web-app/
+# Environment files
+.env
+.env.local
+project-backend/.env
+.env.production
+
+# Node
 node_modules/
+project-backend/node_modules/
+
+# Python
 __pycache__/
+.venv/
+env/
+
+# Web app
+web-app/
+
+# ML Models and Large Data
+trained_ticket_model/
+dataset/
+*.npy
+*.safetensors
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/

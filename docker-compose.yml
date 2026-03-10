@@ -1,0 +1,62 @@
+services:
+  # Message Broker: Handles communication
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: ceivoice-mq
+    restart: always
+    # No ports exposed to host — containers communicate internally via Docker network
+    # To access management UI: ssh -L 15672:localhost:15672 user@your-vps
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ceivoice
+
+  # ML Worker
+  ml-worker:
+    build:
+      context: .
+      dockerfile: main.Dockerfile
+    container_name: ceivoice-ml
+    restart: always
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - main.env
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
+    networks:
+      - ceivoice
+
+  # Next.js App: Frontend and Backend API routes
+  ceivoice-app:
+    build:
+      context: ./project-backend
+      dockerfile: Dockerfile
+    container_name: ceivoice-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - project-backend/.env
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
+    networks:
+      - ceivoice
+
+networks:
+  ceivoice:
+    driver: bridge
