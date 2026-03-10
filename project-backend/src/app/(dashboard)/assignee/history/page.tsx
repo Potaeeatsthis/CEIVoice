@@ -86,7 +86,6 @@ export default async function HistoryPage() {
 
   return (
     <div className="space-y-6">
-
       {/* ---------- Header ---------- */}
       <div>
         <h1 className="text-3xl font-bold text-white">History Log</h1>
@@ -94,72 +93,74 @@ export default async function HistoryPage() {
           All ticket updates and actions.
         </p>
       </div>
-
       {/* ---------- List ---------- */}
-      {groupedLogs.length === 0 ? (
-        <div className="p-12 text-center text-zinc-500 border border-zinc-800 rounded-lg bg-zinc-950/40">
-          No history yet.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {groupedLogs.map((group) => (
-            <details
-              key={group.key}
-              className="group bg-zinc-950/40 border border-zinc-800/60 rounded-xl overflow-hidden shadow-sm"
-            >
-              <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-zinc-900/40 transition-colors list-none [&::-webkit-details-marker]:hidden">
-                {/* Left: chevron + ticket + user */}
-                <div className="flex items-center gap-3">
-                  <svg
-                    className="w-4 h-4 text-zinc-500 transition-transform duration-200 group-open:rotate-180 shrink-0"
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                  <Link
-                    href={`/assignee/tickets/${group.ticket_id}`}
-                    className="font-mono text-blue-400 hover:text-blue-300 text-sm"
-                  >
-                    #{group.ticket_id}
-                  </Link>
-                  <span className="text-zinc-500 text-sm">·</span>
-                  <span className={`text-sm ${group.user === 'System' ? 'text-zinc-600' : 'text-zinc-200 font-medium'}`}>
-                    {group.user}
-                  </span>
-                </div>
-
-                {/* Middle: count pill */}
-                <span className="text-[10px] uppercase tracking-wider font-bold bg-zinc-800/50 text-zinc-400 border border-zinc-700/50 px-2 py-1 rounded-full">
-                  {group.actions.length} update{group.actions.length !== 1 ? 's' : ''}
-                </span>
-
-                {/* Right: summary time */}
-                <span className="text-zinc-500 text-sm font-medium">
-                  {new Date(group.summaryTime).toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </summary>
-
-              {/* Expanded actions */}
-              <div className="px-4 pb-4 pt-2 border-t border-zinc-800/50 bg-black/20 space-y-1">
-                {group.actions.map((log) => (
-                  <div
-                    key={log.id}
-                    className="flex items-center justify-between ml-6 pl-4 border-l-2 border-zinc-800 py-1.5 hover:bg-zinc-900/40 transition-colors"
-                  >
-                    <div className="flex items-center gap-2 text-sm text-zinc-400">
-                      <span className="text-zinc-600">↳</span>
-                      <FormattedAction action={log.action} />
+      <>
+        {groupedLogs.length === 0 ? (
+          <div className="p-12 text-center text-zinc-500 border border-zinc-800 rounded-lg bg-zinc-950/40">
+            No history yet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <div className="space-y-3 min-w-max">
+              {groupedLogs.map((group) => (
+                <details
+                  key={group.key}
+                  className="group bg-zinc-950/40 border border-zinc-800/60 rounded-xl overflow-hidden shadow-sm"
+                >
+                  <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-zinc-900/40 transition-colors list-none [&::-webkit-details-marker]:hidden">
+                    {/* Left: chevron + ticket + user + pill */}
+                    <div className="flex items-center gap-3">
+                      <svg
+                        className="w-4 h-4 text-zinc-500 transition-transform duration-200 group-open:rotate-180 shrink-0"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                      <div className="flex items-center" style={{ minWidth: '7rem' }}>
+                        <Link
+                          href={`/assignee/tickets/${group.ticket_id}`}
+                          className="font-mono text-blue-400 hover:text-blue-300 text-sm w-20 text-right tabular-nums block"
+                          style={{ minWidth: '5rem' }}
+                        >
+                          #{group.ticket_id}
+                        </Link>
+                      </div>
+                      <span className="text-zinc-500 text-sm">·</span>
+                      <span className={`text-sm ${group.user === 'System' ? 'text-zinc-600' : 'text-zinc-200 font-medium'}`}>
+                        {group.user}
+                      </span>
+                      <span className="ml-6 text-[10px] uppercase tracking-wider font-bold bg-zinc-800/50 text-zinc-400 border border-zinc-700/50 px-2 py-1 rounded-full flex-shrink-0" style={{ minWidth: '70px', textAlign: 'center' }}>
+                        {group.actions.length} update{group.actions.length !== 1 ? 's' : ''}
+                      </span>
                     </div>
-                    <span className="text-xs text-zinc-500 font-mono pr-4">
-                      {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    {/* Right: summary time */}
+                    <span className="text-zinc-500 text-sm font-medium flex-shrink-0" style={{ minWidth: '120px', textAlign: 'right' }}>
+                      {new Date(group.summaryTime).toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </span>
+                  </summary>
+                  {/* Expanded actions */}
+                  <div className="px-4 pb-4 pt-2 border-t border-zinc-800/50 bg-black/20 space-y-1">
+                    {group.actions.map((log) => (
+                      <div
+                        key={log.id}
+                        className="flex items-center justify-between ml-6 pl-4 border-l-2 border-zinc-800 py-1.5 hover:bg-zinc-900/40 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 text-sm text-zinc-400">
+                          <span className="text-zinc-600">↳</span>
+                          <FormattedAction action={log.action} />
+                        </div>
+                        <span className="text-xs text-zinc-500 font-mono pr-4">
+                          {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </details>
-          ))}
-        </div>
-      )}
+                </details>
+              ))}
+            </div>
+          </div>
+        )}
+      </>
     </div>
   );
 }
