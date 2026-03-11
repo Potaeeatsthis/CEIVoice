@@ -1,13 +1,9 @@
 // src/app/api/auth/register/route.ts
 
-import React from 'react';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { hashPassword } from '@/lib/auth';
-import { Resend } from 'resend';
-import { WelcomeEmail } from '@/components/emails/WelcomeEmail';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendWelcomeEmail } from '@/lib/email';
 
 export async function POST(request: Request) {
   try {
@@ -58,13 +54,7 @@ export async function POST(request: Request) {
     if (error) throw error;
 
     // Send welcome email (non-blocking)
-    resend.emails
-      .send({
-        from: 'CEiVoice Support <support@ceivoice.com>',
-        to: email,
-        subject: 'Welcome to CEiVoice!',
-        react: WelcomeEmail({ fullName: full_name || 'User', role: assignedRole }) as React.ReactElement,
-      })
+    sendWelcomeEmail(email, full_name || 'User', assignedRole)
       .catch((err) => console.error('Failed to send welcome email:', err));
 
     return NextResponse.json({

@@ -58,10 +58,7 @@ export async function POST(request: Request) {
     try {
       // Use your sleek newly designed email template!
       await sendPasswordResetEmail(email, user.full_name || 'User', resetLink);
-      console.log('\n=============================================');
-      console.log(`✉️ PASSWORD RESET LINK FOR: ${email}`);
-      console.log(resetLink);
-      console.log('=============================================\n');
+      console.log(`✉️ Password reset email sent to: ${email}`);
     } catch (emailError: any) {
       console.error('Failed to send password reset email:', emailError);
       return NextResponse.json(

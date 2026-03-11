@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { publishToQueue } from '@/lib/rabbitmq';
-import { sendTicketCreatedEmail } from '@/lib/email';
+import { sendTicketReceivedEmail } from '@/lib/email';
 
 export async function GET(request: Request) {
   try {
@@ -145,14 +145,14 @@ export async function POST(request: Request) {
         }
       }
 
-      sendTicketCreatedEmail(
+      sendTicketReceivedEmail(
         recipientEmail,
         recipientName,
         ticket.id,
         ticket.title || `Ticket #${ticket.id}`,
         ticket.description,
         recipientRole
-      ).catch((err) => console.error('[Ticket Created Email] Failed:', err));
+      ).catch((err) => console.error('[Ticket Received Email] Failed:', err));
     }
 
     const QUEUE_NAME = 'ticket_processing_queue';

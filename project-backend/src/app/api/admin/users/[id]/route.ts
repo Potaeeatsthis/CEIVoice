@@ -2,11 +2,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { cookies } from 'next/headers';
-import { Resend } from 'resend'; // Ensure you have 'resend' installed
-import RoleUpdatedEmail from '@/components/emails/RoleUpdatedEmail';
-
-// Initialize Resend with your API Key
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendRoleUpdatedEmail } from '@/lib/email';
 
 export async function PATCH(
   request: Request,
@@ -43,16 +39,11 @@ export async function PATCH(
     // 2. Send Email Notification (Only if Role Changed)
     if (role && updatedUser.email) {
       try {
-        await resend.emails.send({
-          from: 'CEIVoice Admin <system@ceivoice.com>', // Replace with your verified sender
-          to: updatedUser.email,
-          subject: 'Your CEIVoice Role Has Been Updated',
-          react: RoleUpdatedEmail({
-            userName: updatedUser.full_name || 'User',
-            newRole: role,
-            dashboardUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
-          }),
-        });
+        await sendRoleUpdatedEmail(
+          updatedUser.email,
+          updatedUser.full_name || 'User',
+          role
+        );
       } catch (emailError) {
         // Log error but don't fail the request
         console.error("Failed to send role update email:", emailError);

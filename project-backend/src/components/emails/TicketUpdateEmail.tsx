@@ -66,7 +66,9 @@ export default function TicketUpdateEmail({
 
   const descriptions: Record<string, string> = {
     SOLVED:           `${actorName} marked this ticket as solved.`,
-    FAILED:           `${actorName} marked this ticket as failed.`,
+    FAILED:           newValue
+      ? `${actorName} marked this ticket as failed. Reason: ${newValue}`
+      : `${actorName} marked this ticket as failed.`,
     MERGED:           `${actorName} merged this ticket.`,
     DEADLINE:         `The deadline has been updated to ${newValue}.`,
     ASSIGNED:         `Your ticket has been assigned to ${newValue}.`,

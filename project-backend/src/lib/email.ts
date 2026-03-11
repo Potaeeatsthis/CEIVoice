@@ -14,6 +14,7 @@ import { RoleUpdatedEmail } from '@/components/emails/RoleUpdatedEmail';
 import { WelcomeEmail } from '@/components/emails/WelcomeEmail';
 import { ResetPasswordEmail } from '@/components/emails/ResetPasswordEmail';
 import { PasswordChangedEmail } from '@/components/emails/PasswordChangedEmail';
+import TicketReceivedEmail from '@/components/emails/TicketReceivedEmail';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -289,6 +290,32 @@ export async function sendPasswordChangedEmail(
     to: userEmail,
     subject: 'Your CEiVoice password was changed',
     react: re(PasswordChangedEmail({ name })),
+  });
+}
+
+export async function sendTicketReceivedEmail(
+  userEmail: string,
+  recipientName: string,
+  ticketId: string | number,
+  ticketTitle: string,
+  ticketDescription: string,
+  userRole: string = 'USER',
+) {
+  if (!process.env.RESEND_API_KEY) return;
+
+  const link = ticketUrlForRole(userRole, ticketId);
+
+  await resend.emails.send({
+    from: 'CEiVoice Support <support@ceivoice.com>',
+    to: userEmail,
+    subject: `[Ticket #${ticketId}] We've received your request`,
+    react: TicketReceivedEmail({
+      recipientName,
+      ticketId,
+      ticketTitle,
+      ticketDescription,
+      link,
+    }),
   });
 }
 

@@ -1,4 +1,4 @@
-// src/components/emails/TicketCreatedEmail.tsx
+// src/components/emails/TicketReceivedEmail.tsx
 
 import {
   Body,
@@ -12,24 +12,22 @@ import {
   Text,
 } from '@react-email/components';
 
-type TicketCreatedEmailProps = {
+type TicketReceivedEmailProps = {
   recipientName: string;
   ticketId: string | number;
   ticketTitle: string;
-  ticketDescription: string; // ← fixed typo (was: ticketDescaription)
-  ticketPriority?: string;
+  ticketDescription: string;
   link: string;
 };
 
-export default function TicketCreatedEmail({
+export default function TicketReceivedEmail({
   recipientName,
   ticketId,
   ticketTitle,
   ticketDescription,
-  ticketPriority,
   link,
-}: TicketCreatedEmailProps) {
-  const preview = `Your ticket #${ticketId} has been activated — status is now NEW`;
+}: TicketReceivedEmailProps) {
+  const preview = `We've received your ticket #${ticketId} — our team will review it shortly`;
 
   const shortDescription =
     ticketDescription && ticketDescription.length > 200
@@ -50,26 +48,22 @@ export default function TicketCreatedEmail({
 
           {/* Body */}
           <Section style={body}>
-            <Text style={badge}>Ticket Activated</Text>
+            <Text style={badge}>Ticket Received</Text>
 
-            <Heading style={title}>Your ticket is now active!</Heading>
+            <Heading style={title}>We&apos;ve received your request!</Heading>
 
             <Text style={text}>
-              Hello {recipientName}, your ticket has been reviewed and activated by our support team.
-              Its status has been updated from <strong>DRAFT</strong> to <strong style={{ color: '#3b82f6' }}>NEW</strong> and is now in our queue.
+              Hello {recipientName}, thank you for reaching out. Your ticket has
+              been submitted and is currently under review by our support team.
+              You will receive another email once your ticket has been activated.
             </Text>
 
             {/* Ticket details box */}
             <Section style={detailsBox}>
-              <Text style={detailLabel}>STATUS UPDATE</Text>
+              <Text style={detailLabel}>STATUS</Text>
               <Text style={detailValue}>
-                <span style={{ color: '#a1a1aa' }}>DRAFT</span>
-                {'  →  '}
-                <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>NEW</span>
+                <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>PENDING REVIEW</span>
               </Text>
-
-              <Text style={detailLabel}>PRIORITY</Text>
-              <Text style={detailValue}>{ticketPriority || 'MEDIUM'}</Text>
 
               <Text style={detailLabel}>TICKET ID</Text>
               <Text style={detailValue}>#{ticketId}</Text>
@@ -88,9 +82,9 @@ export default function TicketCreatedEmail({
             </Section>
 
             <Text style={noteText}>
-              You will receive email updates as your ticket progresses. If you
-              have additional information to add, please reply directly in the
-              ticket.
+              Our team typically reviews new submissions within a few hours. Once
+              approved, your ticket will be activated and you&apos;ll receive a
+              confirmation email with the updated status.
             </Text>
           </Section>
 
@@ -138,8 +132,8 @@ const body = {
 };
 const badge = {
   display: 'inline-block',
-  backgroundColor: '#004d28',
-  color: '#00e676',
+  backgroundColor: '#4d3800',
+  color: '#fbbf24',
   padding: '6px 14px',
   borderRadius: '9999px',
   fontSize: '13px',
@@ -162,7 +156,7 @@ const detailsBox = {
   backgroundColor: '#262626',
   borderRadius: '6px',
   padding: '24px',
-  borderLeft: '4px solid #00e676',
+  borderLeft: '4px solid #fbbf24',
   margin: '32px 0',
 };
 const detailLabel = {
@@ -185,7 +179,7 @@ const detailValueLast = {
   lineHeight: '1.6',
 };
 const button = {
-  backgroundColor: '#00e676',
+  backgroundColor: '#fbbf24',
   color: '#000000',
   padding: '12px 20px',
   borderRadius: '6px',

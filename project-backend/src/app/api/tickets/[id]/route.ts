@@ -114,7 +114,7 @@ export async function PATCH(
 
     const { data: existingTicket, error: fetchError } = await supabaseAdmin
       .from('tickets')
-      .select('status, failure_reason')
+      .select('status, failure_reason, priority, deadline, assigned_to')
       .eq('id', id)
       .single();
 
@@ -236,34 +236,38 @@ export async function PATCH(
 
     // EMAIL NOTIFICATIONS (Fire & Forget)
     const triggerEmails = async () => {
+      const emailPromises = [];
+
       // Status-specific emails
       if (status !== undefined && status !== existingTicket.status) {
         if (status === 'SOLVED') {
-          await sendTicketNotification('SOLVED', ticket, actorName);
+          emailPromises.push(sendTicketNotification('SOLVED', ticket, actorName));
         } else if (status === 'FAILED') {
-          await sendTicketNotification('FAILED', ticket, actorName);
+          emailPromises.push(sendTicketNotification('FAILED', ticket, actorName));
         } else if (status === 'MERGED') {
-          await sendTicketNotification('MERGED', ticket, actorName);
+          emailPromises.push(sendTicketNotification('MERGED', ticket, actorName));
         } else {
           // NEW, IN_PROGRESS, or any other status change → notify user
-          await sendTicketStatusUpdate(ticket, status, actorName);
+          emailPromises.push(sendTicketStatusUpdate(ticket, status, actorName));
         }
       }
 
-      // Priority changed → notify user
-      if (priority !== undefined) {
-        await sendTicketPriorityUpdate(ticket, priority, actorName);
+      // Priority changed → notify user (only if actually different)
+      if (priority !== undefined && priority !== existingTicket.priority) {
+        emailPromises.push(sendTicketPriorityUpdate(ticket, priority, actorName));
       }
 
-      // Deadline updated → notify user
-      if (deadline && deadline !== '') {
-        await sendTicketNotification('DEADLINE', ticket, actorName);
+      // Deadline updated → notify user (only if actually different)
+      if (deadline !== undefined && deadline !== '' && deadline !== existingTicket.deadline) {
+        emailPromises.push(sendTicketNotification('DEADLINE', ticket, actorName));
       }
 
-      // Assigned → notify user + staff
-      if (assigned_to && ticket.assigned_to_user) {
-        await sendTicketNotification('ASSIGNED', ticket, actorName);
+      // Assigned → notify user + staff (only if actually different)
+      if (assigned_to && assigned_to !== existingTicket.assigned_to && ticket.assigned_to_user) {
+        emailPromises.push(sendTicketNotification('ASSIGNED', ticket, actorName));
       }
+
+      await Promise.allSettled(emailPromises);
     };
 
     triggerEmails().catch((err) => console.error('[Email Error]', err));

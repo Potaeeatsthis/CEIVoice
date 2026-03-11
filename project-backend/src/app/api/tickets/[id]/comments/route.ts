@@ -153,7 +153,7 @@ export async function POST(
           }
         }
 
-        // ── Cooldown check (10 min) ────────────────────────────────────────────
+        // ── Cooldown check (30 sec) ─────────────────────────────────────────────
         const now = new Date();
         const lastEmail = ticket.last_email_sent_at
           ? new Date(ticket.last_email_sent_at)
@@ -195,7 +195,7 @@ export async function POST(
             .eq('id', id);
 
         } else if (!isCooldownOver) {
-          console.log(`🚫 Email skipped — cooldown active (${minutesSinceLastEmail.toFixed(1)} min since last email, need 10 min).`);
+          console.log(`🚫 Email skipped — cooldown active (${minutesSinceLastEmail.toFixed(1)} min since last email, need 0.5 min).`);
         } else {
           console.log(`🚫 Email skipped — no recipients found.`);
         }

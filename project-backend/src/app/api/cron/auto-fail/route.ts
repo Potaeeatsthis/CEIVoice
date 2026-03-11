@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase"
+import { supabaseAdmin } from "@/lib/supabase"
 import { NextResponse } from "next/server"
 import { sendTicketNotification } from "@/lib/email"
 
@@ -6,15 +6,15 @@ export async function GET() {
   const now = new Date().toISOString()
 
   // 1️⃣ Get tickets that should fail
-  const { data: ticketsToFail, error: fetchError } = await supabase
+  const { data: ticketsToFail, error: fetchError } = await supabaseAdmin
     .from("tickets")
     .select(`
       *,
-      created_by_user:created_by(*),
-      assigned_to_user:assigned_to(*)
+      created_by_user:users!tickets_created_by_fkey(*),
+      assigned_to_user:users!tickets_assigned_to_fkey(*)
     `)
     .lt("deadline", now)
-    .neq("status", "FAILED")
+    .in("status", ["NEW", "IN PROGRESS"])
 
   if (fetchError) {
     console.error(fetchError)
@@ -25,22 +25,47 @@ export async function GET() {
     return NextResponse.json({ success: true, updated: 0 })
   }
 
+  const ids = ticketsToFail.map(t => t.id)
+
   // 2️⃣ Update them
-  const { error: updateError } = await supabase
+  const { error: updateError } = await supabaseAdmin
     .from("tickets")
-    .update({ status: "FAILED" })
-    .lt("deadline", now)
-    .neq("status", "FAILED")
+    .update({ status: "FAILED", failed_at: now })
+    .in("id", ids)
 
   if (updateError) {
     console.error(updateError)
     return NextResponse.json({ error: updateError }, { status: 500 })
   }
 
-  // 3️⃣ Send email for each ticket
-  for (const ticket of ticketsToFail) {
-    await sendTicketNotification("FAILED", ticket, "System")
+  // 3️⃣ Insert system comments
+  const systemComments = ticketsToFail.map(ticket => ({
+    ticket_id: ticket.id,
+    type: 'system',
+    is_internal: false,
+    created_at: now,
+  }))
+
+  const { error: commentError } = await supabaseAdmin
+    .from('comments')
+    .insert(systemComments)
+
+  if (commentError) {
+    console.error('Insert system comment error:', commentError)
   }
+
+  // 4️⃣ Send email for each ticket
+  const emailResults = await Promise.allSettled(
+    ticketsToFail.map(ticket =>
+      sendTicketNotification("FAILED", ticket, "System")
+    )
+  )
+
+  emailResults.forEach((result, i) => {
+    if (result.status === 'rejected') {
+      console.error(`Failed to send email for ticket #${ticketsToFail[i].id}:`, result.reason)
+    }
+  })
 
   return NextResponse.json({
     success: true,
