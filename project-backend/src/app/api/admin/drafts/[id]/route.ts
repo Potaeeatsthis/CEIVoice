@@ -54,22 +54,29 @@ export async function PATCH(
     });
 
     // Send email to ticket creator
+    // Fall back to ticket.user_email for anonymous (non-logged-in) submissions
     const creator = data.created_by_user;
-    if (creator?.email) {
+    const recipientEmail = creator?.email || data.user_email;
+    const recipientName = creator?.full_name || 'User';
+    const recipientRole = creator?.role || 'USER';
+
+    if (recipientEmail) {
       try {
         await sendTicketCreatedEmail(
-          creator.email,
-          creator.full_name || 'User',
+          recipientEmail,
+          recipientName,
           data.id,
           data.title || 'Untitled Ticket',
           data.description || '',
-          creator.role || 'USER',
+          recipientRole,
           data.priority || 'MEDIUM',
         );
-        console.log(`✅ Ticket created email sent to ${creator.email}`);
+        console.log(`✅ Ticket created email sent to ${recipientEmail}`);
       } catch (emailError) {
         console.error('❌ Failed to send ticket created email:', emailError);
       }
+    } else {
+      console.warn(`⚠️ No email found for ticket #${id} — skipping notification`);
     }
 
     return NextResponse.json({ message: 'Ticket Published', ticket: data });

@@ -55,9 +55,12 @@ export async function POST(request: NextRequest) {
 
     if (updateError) throw updateError;
 
-    // Clear the reset cookie on success
+    // Clear the reset cookie AND any existing session cookies so the
+    // middleware won't redirect the user away from the login page.
     const response = NextResponse.json({ success: true, message: 'Password updated successfully' });
     response.cookies.set(RESET_COOKIE, '', { maxAge: 0, path: '/' });
+    response.cookies.set('token', '', { maxAge: 0, path: '/' });
+    response.cookies.set('user_role', '', { maxAge: 0, path: '/' });
 
     return response;
   } catch (error: any) {

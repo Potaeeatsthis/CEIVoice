@@ -7,9 +7,10 @@ import { RESET_COOKIE } from '@/lib/auth';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const token = searchParams.get('token');
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
   if (!token) {
-    return NextResponse.redirect(new URL('/?error=Invalid+link', request.url));
+    return NextResponse.redirect(new URL('/?error=Invalid+link', appUrl));
   }
 
   // Verify token exists and has not expired
@@ -21,11 +22,11 @@ export async function GET(request: Request) {
     .single();
 
   if (!user) {
-    return NextResponse.redirect(new URL('/?error=Expired+or+invalid+link', request.url));
+    return NextResponse.redirect(new URL('/?error=Expired+or+invalid+link', appUrl));
   }
 
   const response = NextResponse.redirect(
-    new URL('/reset-password', request.url)
+    new URL('/reset-password', appUrl)
   );
 
   response.cookies.set(RESET_COOKIE, token, {

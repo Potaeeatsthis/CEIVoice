@@ -105,31 +105,35 @@ export async function POST(
           last_seen_at: string | null;
         }[] = [];
 
-        // ── Case 1: Staff (admin/assignee) sent the message → notify ticket creator
-        const creatorUser = ticket.created_by_user as any;
-        if (isStaff && !isSenderCreator && creatorUser?.email) {
-          console.log(`➕ Adding creator as recipient: ${creatorUser.email}`);
+        // Helper to safely add a recipient without duplicates
+        const addRecipient = (user: any, fallbackRole = 'USER') => {
+          if (!user?.email) return;
+          if (user.id === userId) return; // never notify the sender
+          if (recipients.some(r => r.email === user.email)) return;
           recipients.push({
-            email: creatorUser.email,
-            name: creatorUser.full_name || 'User',
-            role: creatorUser.role || 'USER',
-            last_seen_at: creatorUser.last_seen_at,
+            email: user.email,
+            name: user.full_name || 'User',
+            role: user.role || fallbackRole,
+            last_seen_at: user.last_seen_at ?? null,
           });
+        };
+
+        const creatorUser = ticket.created_by_user as any;
+        const assigneeUser = ticket.assigned_to_user as any;
+
+        // ── Case 1: Staff sent message → notify ticket creator
+        if (isStaff && !isSenderCreator) {
+          console.log(`➕ Staff message — adding creator: ${creatorUser?.email}`);
+          addRecipient(creatorUser, 'USER');
         }
 
         // ── Case 2: Creator sent message → notify assignee (if assigned)
-        const assigneeUser = ticket.assigned_to_user as any;
         if (isSenderCreator && assigneeUser?.email && !isSenderAssignee) {
-          console.log(`➕ Adding assignee as recipient: ${assigneeUser.email}`);
-          recipients.push({
-            email: assigneeUser.email,
-            name: assigneeUser.full_name || 'Team Member',
-            role: assigneeUser.role || 'ASSIGNEE',
-            last_seen_at: assigneeUser.last_seen_at,
-          });
+          console.log(`➕ Creator message — adding assignee: ${assigneeUser?.email}`);
+          addRecipient(assigneeUser, 'ASSIGNEE');
         }
 
-        // ── Case 3: Creator sent message, ticket is unassigned → notify all admins
+        // ── Case 3: Creator sent message, ticket unassigned → notify all admins
         if (isSenderCreator && !ticket.assigned_to) {
           const { data: admins } = await supabaseAdmin
             .from('users')
@@ -138,22 +142,27 @@ export async function POST(
             .neq('id', userId);
 
           console.log(`➕ Unassigned ticket — notifying ${admins?.length ?? 0} admin(s)`);
-
-          if (admins) {
-            for (const admin of admins) {
-              if (admin.email) {
-                recipients.push({
-                  email: admin.email,
-                  name: admin.full_name || 'Admin',
-                  role: 'ADMIN',
-                  last_seen_at: admin.last_seen_at,
-                });
-              }
-            }
-          }
+          (admins || []).forEach(admin => addRecipient(admin, 'ADMIN'));
         }
 
-        // ── Cooldown check (30 sec) ─────────────────────────────────────────────
+        // ── Case 4: Follower sent message → notify creator + assignee
+        if (!isSenderCreator && !isStaff) {
+          console.log(`➕ Follower message — adding creator + assignee`);
+          addRecipient(creatorUser, 'USER');
+          addRecipient(assigneeUser, 'ASSIGNEE');
+        }
+
+        // ── Case 5: Always notify all followers (except the sender) ───────────
+        const { data: followerRows } = await supabaseAdmin
+          .from('ticket_followers')
+          .select('user:users!ticket_followers_user_id_fkey(id, email, full_name, role, last_seen_at)')
+          .eq('ticket_id', id);
+
+        const followers = (followerRows || []).map((r: any) => r.user).filter(Boolean);
+        console.log(`➕ Found ${followers.length} follower(s) for ticket #${id}`);
+        followers.forEach((f: any) => addRecipient(f, 'USER'));
+
+        // ── Cooldown check (30 sec) ───────────────────────────────────────────
         const now = new Date();
         const lastEmail = ticket.last_email_sent_at
           ? new Date(ticket.last_email_sent_at)

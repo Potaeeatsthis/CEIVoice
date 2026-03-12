@@ -7,6 +7,7 @@ import {
   sendTicketNotification,
   sendTicketStatusUpdate,
   sendTicketPriorityUpdate,
+  type TicketFollower,
 } from '@/lib/email';
 
 // 1. GET: Fetch a single ticket
@@ -236,35 +237,45 @@ export async function PATCH(
 
     // EMAIL NOTIFICATIONS (Fire & Forget)
     const triggerEmails = async () => {
+      // Fetch all followers of this ticket
+      const { data: followerRows } = await supabaseAdmin
+        .from('ticket_followers')
+        .select('user:users!ticket_followers_user_id_fkey(id, email, full_name, role)')
+        .eq('ticket_id', Number(id));
+
+      const followers: TicketFollower[] = (followerRows || [])
+        .map((r: any) => r.user)
+        .filter((u: any) => u?.email);
+
       const emailPromises = [];
 
       // Status-specific emails
       if (status !== undefined && status !== existingTicket.status) {
         if (status === 'SOLVED') {
-          emailPromises.push(sendTicketNotification('SOLVED', ticket, actorName));
+          emailPromises.push(sendTicketNotification('SOLVED', ticket, actorName, followers));
         } else if (status === 'FAILED') {
-          emailPromises.push(sendTicketNotification('FAILED', ticket, actorName));
+          emailPromises.push(sendTicketNotification('FAILED', ticket, actorName, followers));
         } else if (status === 'MERGED') {
-          emailPromises.push(sendTicketNotification('MERGED', ticket, actorName));
+          emailPromises.push(sendTicketNotification('MERGED', ticket, actorName, followers));
         } else {
-          // NEW, IN_PROGRESS, or any other status change → notify user
-          emailPromises.push(sendTicketStatusUpdate(ticket, status, actorName));
+          // NEW, IN_PROGRESS, or any other status change → notify user + followers
+          emailPromises.push(sendTicketStatusUpdate(ticket, status, actorName, followers));
         }
       }
 
-      // Priority changed → notify user (only if actually different)
+      // Priority changed → notify user + followers (only if actually different)
       if (priority !== undefined && priority !== existingTicket.priority) {
-        emailPromises.push(sendTicketPriorityUpdate(ticket, priority, actorName));
+        emailPromises.push(sendTicketPriorityUpdate(ticket, priority, actorName, followers));
       }
 
-      // Deadline updated → notify user (only if actually different)
+      // Deadline updated → notify user + followers (only if actually different)
       if (deadline !== undefined && deadline !== '' && deadline !== existingTicket.deadline) {
-        emailPromises.push(sendTicketNotification('DEADLINE', ticket, actorName));
+        emailPromises.push(sendTicketNotification('DEADLINE', ticket, actorName, followers));
       }
 
-      // Assigned → notify user + staff (only if actually different)
+      // Assigned → notify user + staff + followers (only if actually different)
       if (assigned_to && assigned_to !== existingTicket.assigned_to && ticket.assigned_to_user) {
-        emailPromises.push(sendTicketNotification('ASSIGNED', ticket, actorName));
+        emailPromises.push(sendTicketNotification('ASSIGNED', ticket, actorName, followers));
       }
 
       await Promise.allSettled(emailPromises);

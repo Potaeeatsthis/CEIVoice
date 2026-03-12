@@ -1,3 +1,5 @@
+// src/app/api/admin/merge/route.ts
+
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { cookies } from 'next/headers';
@@ -76,6 +78,13 @@ export async function POST(request: Request) {
       .in('id', ticketIds);
 
     if (mergedTickets) {
+      // Auto-follow: add creators of merged tickets as followers of the parent
+      const creatorIds = [...new Set(mergedTickets.map((t: any) => t.created_by).filter(Boolean))];
+      if (creatorIds.length > 0) {
+        const followerRows = creatorIds.map((uid: string) => ({ ticket_id: parentTicket.id, user_id: uid }));
+        const { error: followError } = await supabaseAdmin.from('ticket_followers').upsert(followerRows, { onConflict: 'ticket_id,user_id', ignoreDuplicates: true });
+        if (followError) { console.error('Auto-follow failed:', JSON.stringify(followError)); } else { console.log('Auto-follow OK: added', creatorIds.length, 'followers to', parentTicket.id); }
+      }
       const notifyAll = mergedTickets.map((ticket: any) =>
         sendTicketNotification('MERGED', { ...ticket, parent_ticket_id: parentTicket.id })
       );

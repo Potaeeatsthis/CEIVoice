@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
 import UserTicketDetailView from '@/components/UserTicketDetailView';
 
@@ -37,6 +38,7 @@ async function getData(ticketId: string) {
   if (error || !ticket) return null;
 
   const isOwner = userId ? ticket.created_by === userId : false;
+  if (ticket.status === 'MERGED' && ticket.parent_ticket_id) return { redirect: `/tickets/${ticket.parent_ticket_id}` };
   if (ticket.status === 'DRAFT' && !isGuest && !isOwner) return null;
 
   // Fetch followers for this ticket
@@ -101,6 +103,7 @@ export default async function UserTicketDetailPage({
   const { id } = await params;
   const data   = await getData(id);
 
+  if (data && 'redirect' in data) redirect(data.redirect as string);
   if (!data || !data.ticket) {
     return (
       <div className="p-12 text-center border border-zinc-800 rounded-xl bg-zinc-950/40">
